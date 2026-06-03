@@ -102,9 +102,20 @@ public class RaylibRenderer : IRenderer
 
             if (cellX >= 0 && cellX < _gridWidth && cellY >= 0 && cellY < _gridHeight)
             {
-                int px = cellX * _cellPixelSize + _cellPixelSize / 2 - 1;
-                int py = cellY * _cellPixelSize + _cellPixelSize / 2 - 1;
-                Raylib.DrawRectangle(px, py, 2, 2, new Color(220, 220, 220, 255));
+                int centerX = cellX * _cellPixelSize + _cellPixelSize / 2;
+                int centerY = cellY * _cellPixelSize + _cellPixelSize / 2;
+
+                // Draw ant as circle
+                Raylib.DrawCircle(centerX, centerY, 3, new Color(220, 220, 220, 255));
+
+                // Draw orientation as a line
+                if (ants[i].Orientation >= 0)
+                {
+                    int lineLength = _cellPixelSize / 2;
+                    int endX = (int)(centerX + lineLength * MathF.Cos(ants[i].Orientation));
+                    int endY = (int)(centerY + lineLength * MathF.Sin(ants[i].Orientation));
+                    Raylib.DrawLine(centerX, centerY, endX, endY, new Color(255, 200, 100, 255));
+                }
             }
         }
     }

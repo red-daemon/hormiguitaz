@@ -2,7 +2,7 @@ namespace AntSimulator;
 
 public static class Constants
 {
-    public const float DEFAULT_ANT_SPEED = 50f;
+    public const float DEFAULT_ANT_SPEED = 5f;
     public const float DEFAULT_PHEROMONE_SENSITIVITY = 0.8f;
     public const float DEFAULT_EXPLORE_BIAS = 0.3f;
     public const float DEFAULT_PHEROMONE_DEPOSIT_RATE = 0.5f;

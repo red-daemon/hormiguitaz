@@ -8,4 +8,6 @@ public struct AntComponent
     public int ColonyId;
     public float Energy;
     public int TicksInState;
+    public float Orientation;           // Ángulo en radianes (0-2π), -1 si no ha salido del nido
+    public int WaitTicksRemaining;      // Ticks que espera antes de salir del nido
 }

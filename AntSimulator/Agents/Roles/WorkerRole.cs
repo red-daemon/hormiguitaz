@@ -21,9 +21,42 @@ public class WorkerRole : IRoleStrategy
     {
         Vector2 velocity = Vector2.Zero;
         AntState? newState = null;
+        var currentCell = grid.GetCell((int)position.X, (int)position.Y);
+
+        // PHASE 1: Waiting in nest
+        if (currentCell.Type == CellType.Nest && ant.WaitTicksRemaining > 0)
+        {
+            velocity = Vector2.Zero;
+            // WaitTicksRemaining will be decremented in BehaviorSystem
+            return new RoleDecision { Action = new AntAction { Velocity = velocity }, NewState = newState };
+        }
+
+        // PHASE 2: Leaving nest (first time)
+        if (currentCell.Type == CellType.Nest && ant.WaitTicksRemaining == 0 && ant.Orientation < 0)
+        {
+            // Assign random orientation (0 to 2π)
+            ant.Orientation = (float)(_random.NextDouble() * Math.PI * 2);
+        }
+
+        // PHASE 3: Moving by orientation (leaving or exploring with orientation)
+        if (ant.Orientation >= 0)
+        {
+            // Calculate velocity based on orientation
+            velocity = new Vector2(
+                MathF.Cos(ant.Orientation),
+                MathF.Sin(ant.Orientation)
+            ) * traits.Speed;
+
+            // Add random delta rotation (-5° to +5° in radians)
+            float deltaRotation = (float)((_random.NextDouble() - 0.5) * 10 * Math.PI / 180);  // ±5° in radians
+            ant.Orientation += deltaRotation;
+
+            // Clamp orientation to 0-2π
+            if (ant.Orientation < 0) ant.Orientation += (float)(Math.PI * 2);
+            if (ant.Orientation >= Math.PI * 2) ant.Orientation -= (float)(Math.PI * 2);
+        }
 
         // Check if on food cell
-        var currentCell = grid.GetCell((int)position.X, (int)position.Y);
         if (ant.State == AntState.Exploring && currentCell.Type == CellType.Food)
         {
             newState = AntState.Returning;
@@ -35,9 +68,9 @@ public class WorkerRole : IRoleStrategy
             newState = AntState.Exploring;
         }
 
-        if (ant.State == AntState.Exploring)
+        if (ant.State == AntState.Exploring && currentCell.Type != CellType.Nest)
         {
-            // Sample pheromones in neighboring cells
+            // Sample pheromones in neighboring cells (outside nest)
             Vector2 pheromoneDirection = Vector2.Zero;
             float maxPheromone = 0f;
 
@@ -65,19 +98,12 @@ public class WorkerRole : IRoleStrategy
                 }
             }
 
-            // If found strong pheromone trail, follow it
+            // If found strong pheromone trail, override orientation
             if (maxPheromone > 0.05f && pheromoneDirection.LengthSquared() > 0.1f)
             {
+                // Switch to pheromone following
+                ant.Orientation = MathF.Atan2(pheromoneDirection.Y, pheromoneDirection.X);
                 velocity = pheromoneDirection * traits.Speed;
-            }
-            else
-            {
-                // Random walk
-                float angle = (float)((_random.NextDouble() - 0.5) * Math.PI * 2);
-                velocity = new Vector2(
-                    MathF.Cos(angle),
-                    MathF.Sin(angle)
-                ) * traits.Speed;
             }
         }
         else if (ant.State == AntState.Returning)
@@ -87,6 +113,7 @@ public class WorkerRole : IRoleStrategy
             if (direction.LengthSquared() > 1f)
             {
                 velocity = Vector2.Normalize(direction) * traits.Speed;
+                ant.Orientation = MathF.Atan2(direction.Y, direction.X);
             }
             else
             {

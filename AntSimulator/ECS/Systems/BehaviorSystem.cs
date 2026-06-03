@@ -23,6 +23,12 @@ public class BehaviorSystem : ISystem
         {
             if (ants[i].State == AntState.Dead) continue;
 
+            // Decrement wait time if still waiting
+            if (ants[i].WaitTicksRemaining > 0)
+            {
+                ants[i].WaitTicksRemaining--;
+            }
+
             var colony = world.Colonies[ants[i].ColonyId];
             var role = _roles[ants[i].ColonyId];
 

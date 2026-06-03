@@ -31,15 +31,38 @@ public class SimulationEngine
         var colony = new Colony(1, nestPos, traits);
         _world.Colonies.Add(1, colony);
 
-        // Create ants near nest
+        // Mark nest at center first
+        for (int nx = (int)nestPos.X - 2; nx <= (int)nestPos.X + 2; nx++)
+        {
+            for (int ny = (int)nestPos.Y - 2; ny <= (int)nestPos.Y + 2; ny++)
+            {
+                if (nx >= 0 && nx < gridWidth && ny >= 0 && ny < gridHeight)
+                {
+                    var nestCell = _world.Grid.GetCell(nx, ny);
+                    nestCell.Type = CellType.Nest;
+                    nestCell.ColonyNestId = 1;
+                    _world.Grid.SetCell(nx, ny, nestCell);
+                }
+            }
+        }
+
+        // Create ants INSIDE nest
         for (int i = 0; i < antCount; i++)
         {
-            var randomPos = new Vector2(
-                (float)(gridWidth / 2 + (Random.Shared.NextDouble() - 0.5) * 10),
-                (float)(gridHeight / 2 + (Random.Shared.NextDouble() - 0.5) * 10)
-            );
-            randomPos = Vector2.Clamp(randomPos, Vector2.Zero, new Vector2(gridWidth - 1, gridHeight - 1));
-            _world.Ants.CreateAnt(1, randomPos);
+            // Spawnear en una celda del nido
+            int nestX = (int)nestPos.X + Random.Shared.Next(-2, 3);
+            int nestY = (int)nestPos.Y + Random.Shared.Next(-2, 3);
+            nestX = Math.Clamp(nestX, (int)nestPos.X - 2, (int)nestPos.X + 2);
+            nestY = Math.Clamp(nestY, (int)nestPos.Y - 2, (int)nestPos.Y + 2);
+
+            var spawnPos = new Vector2(nestX, nestY);
+            int antId = _world.Ants.CreateAnt(1, spawnPos);
+
+            // Assign random wait time (0-60 ticks)
+            var ants = _world.Ants.GetAntsMutable();
+            ants[antId].WaitTicksRemaining = Random.Shared.Next(0, 61);
+            ants[antId].Orientation = -1;  // Not set until leaves nest
+
             colony.IncrementPopulation();
         }
 
@@ -61,21 +84,6 @@ public class SimulationEngine
                         cell.FoodAmount = 100f;
                         _world.Grid.SetCell(fx, fy, cell);
                     }
-                }
-            }
-        }
-
-        // Mark nest at center (smaller)
-        for (int nx = (int)nestPos.X - 2; nx <= (int)nestPos.X + 2; nx++)
-        {
-            for (int ny = (int)nestPos.Y - 2; ny <= (int)nestPos.Y + 2; ny++)
-            {
-                if (nx >= 0 && nx < gridWidth && ny >= 0 && ny < gridHeight)
-                {
-                    var nestCell = _world.Grid.GetCell(nx, ny);
-                    nestCell.Type = CellType.Nest;
-                    nestCell.ColonyNestId = 1;
-                    _world.Grid.SetCell(nx, ny, nestCell);
                 }
             }
         }
