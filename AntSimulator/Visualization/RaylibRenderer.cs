@@ -102,19 +102,28 @@ public class RaylibRenderer : IRenderer
 
             if (cellX >= 0 && cellX < _gridWidth && cellY >= 0 && cellY < _gridHeight)
             {
-                int centerX = cellX * _cellPixelSize + _cellPixelSize / 2;
-                int centerY = cellY * _cellPixelSize + _cellPixelSize / 2;
+                float centerX = cellX * _cellPixelSize + _cellPixelSize / 2;
+                float centerY = cellY * _cellPixelSize + _cellPixelSize / 2;
 
-                // Draw ant as circle
-                Raylib.DrawCircle(centerX, centerY, 3, new Color(220, 220, 220, 255));
-
-                // Draw orientation as a line
+                // Draw ant as an oval/rectangle rotated by orientation
                 if (ants[i].Orientation >= 0)
                 {
-                    int lineLength = _cellPixelSize / 2;
-                    int endX = (int)(centerX + lineLength * MathF.Cos(ants[i].Orientation));
-                    int endY = (int)(centerY + lineLength * MathF.Sin(ants[i].Orientation));
-                    Raylib.DrawLine(centerX, centerY, endX, endY, new Color(255, 200, 100, 255));
+                    // Draw rotated rectangle (oval-like)
+                    float width = 3f;
+                    float height = 6f;
+                    float rotation = ants[i].Orientation * 180f / (float)Math.PI;  // Convert to degrees
+
+                    Raylib.DrawRectanglePro(
+                        new Raylib_CsLo.Rectangle(centerX, centerY, width, height),
+                        new System.Numerics.Vector2(width / 2, height / 2),
+                        rotation,
+                        new Color(220, 220, 220, 255)
+                    );
+                }
+                else
+                {
+                    // While waiting in nest, draw as circle
+                    Raylib.DrawCircle((int)centerX, (int)centerY, 2, new Color(100, 100, 100, 255));
                 }
             }
         }

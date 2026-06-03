@@ -47,8 +47,8 @@ public class WorkerRole : IRoleStrategy
                 MathF.Sin(ant.Orientation)
             ) * traits.Speed;
 
-            // Add random delta rotation (-5° to +5° in radians)
-            float deltaRotation = (float)((_random.NextDouble() - 0.5) * 10 * Math.PI / 180);  // ±5° in radians
+            // Add random delta rotation (-1° to +1° in radians for smooth serpentine motion)
+            float deltaRotation = (float)((_random.NextDouble() - 0.5) * 2 * Math.PI / 180);  // ±1° in radians
             ant.Orientation += deltaRotation;
 
             // Clamp orientation to 0-2π

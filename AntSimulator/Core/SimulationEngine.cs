@@ -46,16 +46,11 @@ public class SimulationEngine
             }
         }
 
-        // Create ants INSIDE nest
+        // Create ants - they will exit from nest edge based on orientation
         for (int i = 0; i < antCount; i++)
         {
-            // Spawnear en una celda del nido
-            int nestX = (int)nestPos.X + Random.Shared.Next(-2, 3);
-            int nestY = (int)nestPos.Y + Random.Shared.Next(-2, 3);
-            nestX = Math.Clamp(nestX, (int)nestPos.X - 2, (int)nestPos.X + 2);
-            nestY = Math.Clamp(nestY, (int)nestPos.Y - 2, (int)nestPos.Y + 2);
-
-            var spawnPos = new Vector2(nestX, nestY);
+            // Spawnear en el nido (temporalmente, serán reposicionadas al salir)
+            var spawnPos = nestPos;
             int antId = _world.Ants.CreateAnt(1, spawnPos);
 
             // Assign random wait time (0-60 ticks)
