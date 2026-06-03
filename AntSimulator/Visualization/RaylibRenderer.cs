@@ -30,10 +30,10 @@ public class RaylibRenderer : IRenderer
     public void Render()
     {
         Raylib.BeginDrawing();
-        Raylib.ClearBackground(new Color(0, 0, 0, 255));
+        Raylib.ClearBackground(new Color(20, 20, 20, 255));
 
-        DrawGrid();
         DrawPheromones();
+        DrawGrid();
         DrawAnts();
         DrawUI();
 
@@ -51,13 +51,13 @@ public class RaylibRenderer : IRenderer
                 switch (cell.Type)
                 {
                     case CellType.Food:
-                        Raylib.DrawPixel(x, y, new Color(255, 255, 0, 255));
+                        Raylib.DrawPixel(x, y, new Color(255, 255, 100, 255));
                         break;
                     case CellType.Nest:
-                        Raylib.DrawPixel(x, y, new Color(255, 0, 0, 255));
+                        Raylib.DrawRectangle(x - 2, y - 2, 5, 5, new Color(255, 50, 50, 255));
                         break;
                     case CellType.Wall:
-                        Raylib.DrawPixel(x, y, new Color(64, 64, 64, 255));
+                        Raylib.DrawPixel(x, y, new Color(100, 100, 100, 255));
                         break;
                 }
             }
@@ -66,20 +66,16 @@ public class RaylibRenderer : IRenderer
 
     private void DrawPheromones()
     {
-        var foodPheromone = new float[_gridWidth, _gridHeight];
-
-        // Sample pheromone values (simplified)
         for (int x = 0; x < _gridWidth; x++)
         {
             for (int y = 0; y < _gridHeight; y++)
             {
                 float pheromone = _world.Pheromones.GetPheromone(x, y, 1, PheromoneType.Food);
-                foodPheromone[x, y] = pheromone;
 
-                if (pheromone > 0.01f)
+                if (pheromone > 0.001f)
                 {
-                    byte intensity = (byte)(Math.Min(1f, pheromone) * 100);
-                    Raylib.DrawPixel(x, y, new Color(intensity, intensity / 2, 0, 255));
+                    byte intensity = (byte)(Math.Min(1f, pheromone) * 200);
+                    Raylib.DrawPixel(x, y, new Color(intensity, intensity / 3, 0, 128));
                 }
             }
         }
@@ -95,7 +91,13 @@ public class RaylibRenderer : IRenderer
             if (ants[i].State == AntState.Dead) continue;
 
             var pos = positions[i];
-            Raylib.DrawPixel((int)pos.X, (int)pos.Y, new Color(255, 255, 255, 255));
+            int px = (int)pos.X;
+            int py = (int)pos.Y;
+
+            if (px >= 0 && px < _gridWidth && py >= 0 && py < _gridHeight)
+            {
+                Raylib.DrawPixel(px, py, new Color(220, 220, 220, 255));
+            }
         }
     }
 

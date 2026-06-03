@@ -31,33 +31,54 @@ public class SimulationEngine
         var colony = new Colony(1, nestPos, traits);
         _world.Colonies.Add(1, colony);
 
-        // Create ants
+        // Create ants near nest
         for (int i = 0; i < antCount; i++)
         {
             var randomPos = new Vector2(
-                (float)(Random.Shared.NextDouble() * gridWidth),
-                (float)(Random.Shared.NextDouble() * gridHeight)
+                (float)(gridWidth / 2 + (Random.Shared.NextDouble() - 0.5) * 50),
+                (float)(gridHeight / 2 + (Random.Shared.NextDouble() - 0.5) * 50)
             );
+            randomPos = Vector2.Clamp(randomPos, Vector2.Zero, new Vector2(gridWidth - 1, gridHeight - 1));
             _world.Ants.CreateAnt(1, randomPos);
             colony.IncrementPopulation();
         }
 
-        // Add some food to the grid
-        for (int i = 0; i < 5; i++)
+        // Add multiple food patches
+        for (int i = 0; i < 8; i++)
         {
-            int x = Random.Shared.Next(0, gridWidth);
-            int y = Random.Shared.Next(0, gridHeight);
-            var cell = _world.Grid.GetCell(x, y);
-            cell.Type = CellType.Food;
-            cell.FoodAmount = 100f;
-            _world.Grid.SetCell(x, y, cell);
+            int x = Random.Shared.Next(50, gridWidth - 50);
+            int y = Random.Shared.Next(50, gridHeight - 50);
+
+            // Create a small cluster of food
+            for (int fx = x - 5; fx <= x + 5; fx++)
+            {
+                for (int fy = y - 5; fy <= y + 5; fy++)
+                {
+                    if (fx >= 0 && fx < gridWidth && fy >= 0 && fy < gridHeight)
+                    {
+                        var cell = _world.Grid.GetCell(fx, fy);
+                        cell.Type = CellType.Food;
+                        cell.FoodAmount = 100f;
+                        _world.Grid.SetCell(fx, fy, cell);
+                    }
+                }
+            }
         }
 
         // Mark nest
-        var nestCell = _world.Grid.GetCell((int)nestPos.X, (int)nestPos.Y);
-        nestCell.Type = CellType.Nest;
-        nestCell.ColonyNestId = 1;
-        _world.Grid.SetCell((int)nestPos.X, (int)nestPos.Y, nestCell);
+        for (int nx = (int)nestPos.X - 3; nx <= (int)nestPos.X + 3; nx++)
+        {
+            for (int ny = (int)nestPos.Y - 3; ny <= (int)nestPos.Y + 3; ny++)
+            {
+                if (nx >= 0 && nx < gridWidth && ny >= 0 && ny < gridHeight)
+                {
+                    var nestCell = _world.Grid.GetCell(nx, ny);
+                    nestCell.Type = CellType.Nest;
+                    nestCell.ColonyNestId = 1;
+                    _world.Grid.SetCell(nx, ny, nestCell);
+                }
+            }
+        }
     }
 
     private void RegisterSystems()

@@ -11,10 +11,11 @@ public class AntArchetype
     private PhysicsComponent[] _physics;
 
     private int _count;
+    private int _aliveCount;
     private Queue<int> _freeIndices;
     private int _capacity;
 
-    public int EntityCount => _count;
+    public int EntityCount => _aliveCount;
 
     public AntArchetype(int initialCapacity = 1024)
     {
@@ -24,6 +25,7 @@ public class AntArchetype
         _ants = new AntComponent[_capacity];
         _physics = new PhysicsComponent[_capacity];
         _count = 0;
+        _aliveCount = 0;
         _freeIndices = new Queue<int>();
     }
 
@@ -55,6 +57,7 @@ public class AntArchetype
             TicksInState = 0
         };
         _physics[id] = new PhysicsComponent();
+        _aliveCount++;
 
         return id;
     }
@@ -66,6 +69,7 @@ public class AntArchetype
 
         _ants[id].State = Agents.AntState.Dead;
         _freeIndices.Enqueue(id);
+        _aliveCount--;
     }
 
     public ReadOnlySpan<Vector2> GetPositions() => new ReadOnlySpan<Vector2>(_positions, 0, _capacity);

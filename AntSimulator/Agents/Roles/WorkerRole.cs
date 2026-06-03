@@ -23,41 +23,60 @@ public class WorkerRole : IRoleStrategy
 
         if (ant.State == AntState.Exploring)
         {
-            // Check for food nearby
-            var foodPheromone = pheromones.GetPheromone((int)position.X, (int)position.Y, ant.ColonyId, PheromoneType.Food);
+            // Sample pheromones in neighboring cells
+            Vector2 pheromoneDirection = Vector2.Zero;
+            float maxPheromone = 0f;
 
-            if (foodPheromone > 0.1f)
+            for (int dx = -3; dx <= 3; dx++)
             {
-                // Found food, switch to returning
-                return new AntAction { Velocity = Vector2.Zero };
+                for (int dy = -3; dy <= 3; dy++)
+                {
+                    int nx = (int)position.X + dx;
+                    int ny = (int)position.Y + dy;
+
+                    if (nx < 0 || nx >= grid.Width || ny < 0 || ny >= grid.Height)
+                        continue;
+
+                    float pheromone = pheromones.GetPheromone(nx, ny, ant.ColonyId, PheromoneType.Food);
+
+                    if (pheromone > maxPheromone)
+                    {
+                        maxPheromone = pheromone;
+                        Vector2 dir = new Vector2(nx - position.X, ny - position.Y);
+                        if (dir.LengthSquared() > 0.1f)
+                        {
+                            pheromoneDirection = Vector2.Normalize(dir);
+                        }
+                    }
+                }
             }
 
-            // Random exploration with bias
-            float angle = (float)((_random.NextDouble() - 0.5) * Math.PI * 2);
-            velocity = new Vector2(
-                MathF.Cos(angle),
-                MathF.Sin(angle)
-            ) * traits.Speed;
-
-            // Apply explore bias towards undiscovered areas
-            if (_random.NextDouble() < traits.ExploreBias)
+            // If found strong pheromone trail, follow it
+            if (maxPheromone > 0.05f && pheromoneDirection.LengthSquared() > 0.1f)
             {
-                velocity *= 1.2f;
+                velocity = pheromoneDirection * traits.Speed;
+            }
+            else
+            {
+                // Random walk with slight bias
+                float angle = (float)((_random.NextDouble() - 0.5) * Math.PI * 2);
+                velocity = new Vector2(
+                    MathF.Cos(angle),
+                    MathF.Sin(angle)
+                ) * traits.Speed;
             }
         }
         else if (ant.State == AntState.Returning)
         {
             // Head back to nest
             Vector2 direction = nestPosition - position;
-            if (direction.LengthSquared() > 0.1f)
+            if (direction.LengthSquared() > 1f)
             {
                 velocity = Vector2.Normalize(direction) * traits.Speed;
             }
-
-            // Check if reached nest
-            if (Vector2.Distance(position, nestPosition) < 5f)
+            else
             {
-                return new AntAction { Velocity = Vector2.Zero };
+                velocity = Vector2.Zero;
             }
         }
 
