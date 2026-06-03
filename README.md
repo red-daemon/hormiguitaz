@@ -17,9 +17,12 @@ Un simulador de alta rendimiento basado en agentes que modela colonias de hormig
 - ✅ Rol Worker básico (exploración + retorno)
 - ✅ Visualización con Raylib (grid, hormigas, heatmap)
 - ✅ 3 tests unitarios pasando
-- ⏳ Detectar comida cercana
-- ⏳ Alimentar hormigas al encontrar comida
-- ⏳ Optimización de renderizado
+- ✅ Detectar comida y cambiar estado a Returning
+- ✅ Detectar nido y volver a Exploring
+- ✅ Depositar rastros más fuertes al regresar
+- ✅ Energía balanceada
+- ⏳ Alimentar hormigas al encontrar comida (regenerar energía)
+- ⏳ Mejorar precisión de visualización
 
 **Meta**: Simulación funcional de 500-1000 hormigas @ 60 FPS
 
@@ -329,4 +332,4 @@ MIT
 
 ---
 
-**Última actualización**: 2026-06-03 (Fase 1 MVP - Scaffolding)
+**Última actualización**: 2026-06-03 (Fase 1 MVP - Comportamiento funcional)
