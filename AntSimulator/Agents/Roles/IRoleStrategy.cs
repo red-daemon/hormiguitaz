@@ -6,9 +6,15 @@ using AntSimulator.Pheromones;
 
 namespace AntSimulator.Agents.Roles;
 
+public struct RoleDecision
+{
+    public AntAction Action;
+    public AntState? NewState;
+}
+
 public interface IRoleStrategy
 {
-    AntAction DecideAction(
+    RoleDecision DecideAction(
         int id,
         Vector2 position,
         AntComponent ant,

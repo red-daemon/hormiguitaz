@@ -13,12 +13,17 @@ public class EnergySystem : ISystem
         {
             if (ants[i].State == AntState.Dead) continue;
 
-            float movementCost = velocities[i].Length() * 0.1f;
-            ants[i].Energy -= movementCost * deltaTime;
+            // Minimal energy cost (base metabolism)
+            float baseCost = 0.5f;
+            float movementCost = velocities[i].Length() * 0.001f;
+            float totalCost = (baseCost + movementCost) * deltaTime;
+
+            ants[i].Energy -= totalCost;
 
             if (ants[i].Energy <= 0)
             {
                 ants[i].State = AntState.Dead;
+                world.Ants.DestroyAnt(i);
             }
         }
     }

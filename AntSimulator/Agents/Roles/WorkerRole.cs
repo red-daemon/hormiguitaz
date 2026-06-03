@@ -10,7 +10,7 @@ public class WorkerRole : IRoleStrategy
 {
     private static readonly Random _random = new();
 
-    public AntAction DecideAction(
+    public RoleDecision DecideAction(
         int id,
         Vector2 position,
         AntComponent ant,
@@ -20,6 +20,20 @@ public class WorkerRole : IRoleStrategy
         Vector2 nestPosition)
     {
         Vector2 velocity = Vector2.Zero;
+        AntState? newState = null;
+
+        // Check if on food cell
+        var currentCell = grid.GetCell((int)position.X, (int)position.Y);
+        if (ant.State == AntState.Exploring && currentCell.Type == CellType.Food)
+        {
+            newState = AntState.Returning;
+        }
+
+        // Check if reached nest
+        if (ant.State == AntState.Returning && Vector2.Distance(position, nestPosition) < 3f)
+        {
+            newState = AntState.Exploring;
+        }
 
         if (ant.State == AntState.Exploring)
         {
@@ -58,7 +72,7 @@ public class WorkerRole : IRoleStrategy
             }
             else
             {
-                // Random walk with slight bias
+                // Random walk
                 float angle = (float)((_random.NextDouble() - 0.5) * Math.PI * 2);
                 velocity = new Vector2(
                     MathF.Cos(angle),
@@ -80,6 +94,6 @@ public class WorkerRole : IRoleStrategy
             }
         }
 
-        return new AntAction { Velocity = velocity };
+        return new RoleDecision { Action = new AntAction { Velocity = velocity }, NewState = newState };
     }
 }

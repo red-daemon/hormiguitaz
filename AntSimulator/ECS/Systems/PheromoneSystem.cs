@@ -19,14 +19,26 @@ public class PheromoneSystem : ISystem
             int x = (int)positions[i].X;
             int y = (int)positions[i].Y;
 
-            // Deposit exploration pheromone
-            if (ants[i].State == AntState.Exploring)
+            var depositRate = world.Colonies[ants[i].ColonyId].Traits.PheromoneDepositRate;
+
+            if (ants[i].State == AntState.Returning)
             {
+                // Strong pheromone trail when returning with food
                 pheromones.Deposit(
                     x, y,
                     ants[i].ColonyId,
                     PheromoneType.Food,
-                    world.Colonies[ants[i].ColonyId].Traits.PheromoneDepositRate * 0.1f
+                    depositRate * 0.5f
+                );
+            }
+            else if (ants[i].State == AntState.Exploring)
+            {
+                // Weak exploration pheromone
+                pheromones.Deposit(
+                    x, y,
+                    ants[i].ColonyId,
+                    PheromoneType.Food,
+                    depositRate * 0.05f
                 );
             }
         }

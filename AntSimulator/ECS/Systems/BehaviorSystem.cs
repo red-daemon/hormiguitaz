@@ -26,7 +26,7 @@ public class BehaviorSystem : ISystem
             var colony = world.Colonies[ants[i].ColonyId];
             var role = _roles[ants[i].ColonyId];
 
-            var action = role.DecideAction(
+            var decision = role.DecideAction(
                 i,
                 positions[i],
                 ants[i],
@@ -36,7 +36,13 @@ public class BehaviorSystem : ISystem
                 colony.NestPosition
             );
 
-            velocities[i] = action.Velocity;
+            velocities[i] = decision.Action.Velocity;
+
+            // Apply state change if any
+            if (decision.NewState.HasValue)
+            {
+                ants[i].State = decision.NewState.Value;
+            }
         }
     }
 }
