@@ -13,9 +13,18 @@ public class SimulationEngine
     private IRenderer _renderer;
     private float _deltaTime = 0.016f;
     private bool _isRunning = true;
+    private int _gridWidth;
+    private int _gridHeight;
+    private int _antCount;
+    private int _cellPixelSize;
 
     public SimulationEngine(int gridWidth, int gridHeight, int antCount, int cellPixelSize = 1)
     {
+        _gridWidth = gridWidth;
+        _gridHeight = gridHeight;
+        _antCount = antCount;
+        _cellPixelSize = cellPixelSize;
+
         _world = new World(gridWidth, gridHeight);
         _renderer = new RaylibRenderer(_world, gridWidth, gridHeight, cellPixelSize);
 
@@ -64,7 +73,7 @@ public class SimulationEngine
 
             // Assign random wait time
             var ants = _world.Ants.GetAntsMutable();
-            ants[antId].WaitTicksRemaining = Random.Shared.Next(0, 31);
+            ants[antId].WaitTicksRemaining = Random.Shared.Next(180, 601);
             ants[antId].Orientation = -1;  // Not set until leaves nest
 
             colony.IncrementPopulation();
@@ -105,10 +114,24 @@ public class SimulationEngine
     {
         while (_isRunning && !Raylib.WindowShouldClose())
         {
+            // Check for R key to restart
+            if (Raylib.IsKeyPressed(KeyboardKey.KEY_R))
+            {
+                Restart();
+            }
+
             _world.Update(_deltaTime);
             _renderer.Render();
         }
 
         Raylib.CloseWindow();
+    }
+
+    private void Restart()
+    {
+        _world = new World(_gridWidth, _gridHeight);
+        _renderer = new RaylibRenderer(_world, _gridWidth, _gridHeight, _cellPixelSize);
+        InitializeWorld(_gridWidth, _gridHeight, _antCount);
+        RegisterSystems();
     }
 }

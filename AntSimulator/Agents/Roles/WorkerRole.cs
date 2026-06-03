@@ -8,8 +8,6 @@ namespace AntSimulator.Agents.Roles;
 
 public class WorkerRole : IRoleStrategy
 {
-    private static readonly Random _random = new();
-
     public RoleDecision DecideAction(
         int id,
         Vector2 position,
@@ -35,7 +33,7 @@ public class WorkerRole : IRoleStrategy
         if (currentCell.Type == CellType.Nest && ant.WaitTicksRemaining == 0 && ant.Orientation < 0)
         {
             // Assign random orientation (0 to 2π)
-            ant.Orientation = (float)(_random.NextDouble() * Math.PI * 2);
+            ant.Orientation = (float)(Random.Shared.NextDouble() * Math.PI * 2);
         }
 
         // PHASE 3: Moving by orientation (leaving or exploring with orientation)
@@ -48,7 +46,7 @@ public class WorkerRole : IRoleStrategy
             ) * traits.Speed;
 
             // Add random delta rotation (-1° to +1° in radians for smooth serpentine motion)
-            float deltaRotation = (float)((_random.NextDouble() - 0.5) * 2 * Math.PI / 180);  // ±1° in radians
+            float deltaRotation = (float)((Random.Shared.NextDouble() - 0.5) * 2 * Math.PI / 180);  // ±1° in radians
             ant.Orientation += deltaRotation;
 
             // Clamp orientation to 0-2π
