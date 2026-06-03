@@ -14,10 +14,10 @@ public class SimulationEngine
     private float _deltaTime = 0.016f;
     private bool _isRunning = true;
 
-    public SimulationEngine(int gridWidth, int gridHeight, int antCount)
+    public SimulationEngine(int gridWidth, int gridHeight, int antCount, int cellPixelSize = 1)
     {
         _world = new World(gridWidth, gridHeight);
-        _renderer = new RaylibRenderer(_world, gridWidth, gridHeight);
+        _renderer = new RaylibRenderer(_world, gridWidth, gridHeight, cellPixelSize);
 
         InitializeWorld(gridWidth, gridHeight, antCount);
         RegisterSystems();
@@ -25,7 +25,7 @@ public class SimulationEngine
 
     private void InitializeWorld(int gridWidth, int gridHeight, int antCount)
     {
-        // Create main colony
+        // Create main colony at center
         var nestPos = new Vector2(gridWidth / 2, gridHeight / 2);
         var traits = new ColonyTraits();
         var colony = new Colony(1, nestPos, traits);
@@ -35,24 +35,24 @@ public class SimulationEngine
         for (int i = 0; i < antCount; i++)
         {
             var randomPos = new Vector2(
-                (float)(gridWidth / 2 + (Random.Shared.NextDouble() - 0.5) * 50),
-                (float)(gridHeight / 2 + (Random.Shared.NextDouble() - 0.5) * 50)
+                (float)(gridWidth / 2 + (Random.Shared.NextDouble() - 0.5) * 10),
+                (float)(gridHeight / 2 + (Random.Shared.NextDouble() - 0.5) * 10)
             );
             randomPos = Vector2.Clamp(randomPos, Vector2.Zero, new Vector2(gridWidth - 1, gridHeight - 1));
             _world.Ants.CreateAnt(1, randomPos);
             colony.IncrementPopulation();
         }
 
-        // Add multiple food patches
-        for (int i = 0; i < 8; i++)
-        {
-            int x = Random.Shared.Next(50, gridWidth - 50);
-            int y = Random.Shared.Next(50, gridHeight - 50);
+        // Add food patches in corners
+        int[] foodX = { 15, 85, 15, 85 };
+        int[] foodY = { 15, 15, 85, 85 };
 
-            // Create a small cluster of food
-            for (int fx = x - 5; fx <= x + 5; fx++)
+        for (int i = 0; i < 4; i++)
+        {
+            // Create food patches
+            for (int fx = foodX[i] - 3; fx <= foodX[i] + 3; fx++)
             {
-                for (int fy = y - 5; fy <= y + 5; fy++)
+                for (int fy = foodY[i] - 3; fy <= foodY[i] + 3; fy++)
                 {
                     if (fx >= 0 && fx < gridWidth && fy >= 0 && fy < gridHeight)
                     {
@@ -65,10 +65,10 @@ public class SimulationEngine
             }
         }
 
-        // Mark nest
-        for (int nx = (int)nestPos.X - 3; nx <= (int)nestPos.X + 3; nx++)
+        // Mark nest at center (smaller)
+        for (int nx = (int)nestPos.X - 2; nx <= (int)nestPos.X + 2; nx++)
         {
-            for (int ny = (int)nestPos.Y - 3; ny <= (int)nestPos.Y + 3; ny++)
+            for (int ny = (int)nestPos.Y - 2; ny <= (int)nestPos.Y + 2; ny++)
             {
                 if (nx >= 0 && nx < gridWidth && ny >= 0 && ny < gridHeight)
                 {

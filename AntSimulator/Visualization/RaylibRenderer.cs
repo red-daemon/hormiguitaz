@@ -11,16 +11,18 @@ public class RaylibRenderer : IRenderer
     private World _world;
     private int _gridWidth;
     private int _gridHeight;
+    private int _cellPixelSize;
     private int _screenWidth;
     private int _screenHeight;
 
-    public RaylibRenderer(World world, int gridWidth, int gridHeight)
+    public RaylibRenderer(World world, int gridWidth, int gridHeight, int cellPixelSize = 1)
     {
         _world = world;
         _gridWidth = gridWidth;
         _gridHeight = gridHeight;
-        _screenWidth = gridWidth;
-        _screenHeight = gridHeight;
+        _cellPixelSize = cellPixelSize;
+        _screenWidth = gridWidth * cellPixelSize;
+        _screenHeight = gridHeight * cellPixelSize;
 
         Raylib.SetConfigFlags(ConfigFlags.FLAG_WINDOW_RESIZABLE);
         Raylib.InitWindow(_screenWidth, _screenHeight, "Ant Simulator - Phase 1 MVP");
@@ -47,17 +49,19 @@ public class RaylibRenderer : IRenderer
             for (int y = 0; y < _gridHeight; y++)
             {
                 var cell = _world.Grid.GetCell(x, y);
+                int px = x * _cellPixelSize;
+                int py = y * _cellPixelSize;
 
                 switch (cell.Type)
                 {
                     case CellType.Food:
-                        Raylib.DrawPixel(x, y, new Color(255, 255, 100, 255));
+                        Raylib.DrawRectangle(px, py, _cellPixelSize, _cellPixelSize, new Color(255, 255, 100, 255));
                         break;
                     case CellType.Nest:
-                        Raylib.DrawRectangle(x - 2, y - 2, 5, 5, new Color(255, 50, 50, 255));
+                        Raylib.DrawRectangle(px, py, _cellPixelSize, _cellPixelSize, new Color(255, 50, 50, 255));
                         break;
                     case CellType.Wall:
-                        Raylib.DrawPixel(x, y, new Color(100, 100, 100, 255));
+                        Raylib.DrawRectangle(px, py, _cellPixelSize, _cellPixelSize, new Color(100, 100, 100, 255));
                         break;
                 }
             }
@@ -75,7 +79,9 @@ public class RaylibRenderer : IRenderer
                 if (pheromone > 0.001f)
                 {
                     byte intensity = (byte)(Math.Min(1f, pheromone) * 200);
-                    Raylib.DrawPixel(x, y, new Color(intensity, intensity / 3, 0, 128));
+                    int px = x * _cellPixelSize;
+                    int py = y * _cellPixelSize;
+                    Raylib.DrawRectangle(px, py, _cellPixelSize, _cellPixelSize, new Color(intensity, intensity / 3, 0, 128));
                 }
             }
         }
@@ -91,12 +97,14 @@ public class RaylibRenderer : IRenderer
             if (ants[i].State == AntState.Dead) continue;
 
             var pos = positions[i];
-            int px = (int)pos.X;
-            int py = (int)pos.Y;
+            int cellX = (int)pos.X;
+            int cellY = (int)pos.Y;
 
-            if (px >= 0 && px < _gridWidth && py >= 0 && py < _gridHeight)
+            if (cellX >= 0 && cellX < _gridWidth && cellY >= 0 && cellY < _gridHeight)
             {
-                Raylib.DrawPixel(px, py, new Color(220, 220, 220, 255));
+                int px = cellX * _cellPixelSize + _cellPixelSize / 2 - 1;
+                int py = cellY * _cellPixelSize + _cellPixelSize / 2 - 1;
+                Raylib.DrawRectangle(px, py, 2, 2, new Color(220, 220, 220, 255));
             }
         }
     }
