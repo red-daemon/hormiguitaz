@@ -46,16 +46,25 @@ public class SimulationEngine
             }
         }
 
-        // Create ants - they will exit from nest edge based on orientation
-        for (int i = 0; i < antCount; i++)
+        // Create nest cell positions (5x5 grid around nest center)
+        var nestCells = new List<Vector2>();
+        for (int nx = (int)nestPos.X - 2; nx <= (int)nestPos.X + 2; nx++)
         {
-            // Spawnear en el nido (temporalmente, serán reposicionadas al salir)
-            var spawnPos = nestPos;
+            for (int ny = (int)nestPos.Y - 2; ny <= (int)nestPos.Y + 2; ny++)
+            {
+                nestCells.Add(new Vector2(nx, ny));
+            }
+        }
+
+        // Create ants - each at a different nest cell
+        for (int i = 0; i < antCount && i < nestCells.Count; i++)
+        {
+            var spawnPos = nestCells[i];
             int antId = _world.Ants.CreateAnt(1, spawnPos);
 
-            // Assign random wait time (0-60 ticks)
+            // Assign random wait time
             var ants = _world.Ants.GetAntsMutable();
-            ants[antId].WaitTicksRemaining = Random.Shared.Next(0, 61);
+            ants[antId].WaitTicksRemaining = Random.Shared.Next(0, 31);
             ants[antId].Orientation = -1;  // Not set until leaves nest
 
             colony.IncrementPopulation();

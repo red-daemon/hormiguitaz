@@ -105,10 +105,10 @@ public class RaylibRenderer : IRenderer
                 float centerX = cellX * _cellPixelSize + _cellPixelSize / 2;
                 float centerY = cellY * _cellPixelSize + _cellPixelSize / 2;
 
-                // Draw ant as an oval/rectangle rotated by orientation
+                // Draw ant based on whether it has orientation (has exited nest)
                 if (ants[i].Orientation >= 0)
                 {
-                    // Draw rotated rectangle (oval-like)
+                    // Ant has orientation - draw as rotated rectangle (white oval)
                     float width = 3f;
                     float height = 6f;
                     float rotation = ants[i].Orientation * 180f / (float)Math.PI;  // Convert to degrees
@@ -122,8 +122,8 @@ public class RaylibRenderer : IRenderer
                 }
                 else
                 {
-                    // While waiting in nest, draw as circle
-                    Raylib.DrawCircle((int)centerX, (int)centerY, 2, new Color(100, 100, 100, 255));
+                    // Ant waiting in nest - draw as larger gray circle
+                    Raylib.DrawCircle((int)centerX, (int)centerY, 3, new Color(120, 120, 120, 255));
                 }
             }
         }

@@ -23,11 +23,11 @@ public class WorkerRole : IRoleStrategy
         AntState? newState = null;
         var currentCell = grid.GetCell((int)position.X, (int)position.Y);
 
-        // PHASE 1: Waiting in nest
+        // PHASE 1: Waiting in nest - NO MOVEMENT
         if (currentCell.Type == CellType.Nest && ant.WaitTicksRemaining > 0)
         {
             velocity = Vector2.Zero;
-            // WaitTicksRemaining will be decremented in BehaviorSystem
+            // Return immediately - no orientation, no state change
             return new RoleDecision { Action = new AntAction { Velocity = velocity }, NewState = newState };
         }
 

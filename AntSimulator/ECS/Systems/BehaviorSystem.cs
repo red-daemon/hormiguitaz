@@ -48,19 +48,6 @@ public class BehaviorSystem : ISystem
 
             velocities[i] = decision.Action.Velocity;
 
-            // If ant just got orientation assigned, reposition to nest exit point
-            if (isLeavingNest && ants[i].Orientation >= 0)
-            {
-                // Position ant at nest edge in the direction of its orientation
-                float nestRadius = 3f;
-                Vector2 exitPoint = colony.NestPosition + new Vector2(
-                    MathF.Cos(ants[i].Orientation),
-                    MathF.Sin(ants[i].Orientation)
-                ) * nestRadius;
-
-                positions[i] = Vector2.Clamp(exitPoint, Vector2.Zero, new Vector2(grid.Width - 1, grid.Height - 1));
-            }
-
             // Apply state change if any
             if (decision.NewState.HasValue)
             {
