@@ -29,10 +29,15 @@ public class RaylibRenderer : IRenderer
         Raylib.SetTargetFPS(60);
     }
 
+    public void SetWorld(World world)
+    {
+        _world = world;
+    }
+
     public void Render()
     {
         Raylib.BeginDrawing();
-        Raylib.ClearBackground(new Color(20, 20, 20, 255));
+        Raylib.ClearBackground(new Color(33, 33, 43, 255));
 
         DrawPheromones();
         DrawGrid();
@@ -76,12 +81,15 @@ public class RaylibRenderer : IRenderer
             {
                 float pheromone = _world.Pheromones.GetPheromone(x, y, 1, PheromoneType.Food);
 
-                if (pheromone > 0.001f)
+                if (pheromone > 0f)
                 {
-                    byte intensity = (byte)(Math.Min(1f, pheromone) * 200);
+                    // Interpolar de negro (0,0,0) a naranja (255, 165, 0)
+                    byte r = (byte)(Math.Clamp(pheromone, 0f, 1f) * 255);
+                    byte g = (byte)(Math.Clamp(pheromone, 0f, 1f) * 165);
+
                     int px = x * _cellPixelSize;
                     int py = y * _cellPixelSize;
-                    Raylib.DrawRectangle(px, py, _cellPixelSize, _cellPixelSize, new Color(intensity, intensity / 3, 0, 128));
+                    Raylib.DrawRectangle(px, py, _cellPixelSize, _cellPixelSize, new Color((int)r, (int)g, 0, 255));
                 }
             }
         }
@@ -109,13 +117,13 @@ public class RaylibRenderer : IRenderer
                 if (ants[i].Orientation >= 0)
                 {
                     // Ant has orientation - draw as rotated rectangle (white oval)
-                    float width = 3f;
-                    float height = 6f;
+                    float width = 6f;
+                    float height = 3f;
                     float rotation = ants[i].Orientation * 180f / (float)Math.PI;  // Convert to degrees
 
                     Raylib.DrawRectanglePro(
-                        new Raylib_CsLo.Rectangle(centerX, centerY, width, height),
-                        new System.Numerics.Vector2(width / 2, height / 2),
+                        new Rectangle(centerX, centerY, width, height),
+                        new Vector2(width / 2, height / 2),
                         rotation,
                         new Color(220, 220, 220, 255)
                     );

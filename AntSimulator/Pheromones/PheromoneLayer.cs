@@ -41,7 +41,7 @@ public class PheromoneLayer
         {
             var layer = _coloniesData[colonyId];
 
-            // Diffuse
+            // Diffusion with anisotropic weights (stronger in orthogonal directions)
             var temp = new float[_width, _height];
             Array.Copy(layer, temp, layer.Length);
 
@@ -51,19 +51,34 @@ public class PheromoneLayer
                 {
                     float diffused = layer[x, y] * (1 - Constants.PHEROMONE_DIFFUSION_RATE);
 
-                    for (int dx = -1; dx <= 1; dx++)
+                    // Orthogonal neighbors (up/down/left/right): 70% of diffusion rate / 4
+                    float orthogonalShare = Constants.PHEROMONE_DIFFUSION_RATE * Constants.PHEROMONE_DIFFUSION_ORTHOGONAL_WEIGHT / 4f;
+                    // Diagonal neighbors: 30% of diffusion rate / 4
+                    float diagonalShare = Constants.PHEROMONE_DIFFUSION_RATE * Constants.PHEROMONE_DIFFUSION_DIAGONAL_WEIGHT / 4f;
+
+                    // Orthogonal: (0,1), (0,-1), (1,0), (-1,0)
+                    int[] orthX = { 0, 0, 1, -1 };
+                    int[] orthY = { 1, -1, 0, 0 };
+                    for (int i = 0; i < 4; i++)
                     {
-                        for (int dy = -1; dy <= 1; dy++)
+                        int nx = x + orthX[i];
+                        int ny = y + orthY[i];
+                        if (nx >= 0 && nx < _width && ny >= 0 && ny < _height)
                         {
-                            if (dx == 0 && dy == 0) continue;
+                            diffused += layer[nx, ny] * orthogonalShare;
+                        }
+                    }
 
-                            int nx = x + dx;
-                            int ny = y + dy;
-
-                            if (nx >= 0 && nx < _width && ny >= 0 && ny < _height)
-                            {
-                                diffused += layer[nx, ny] * Constants.PHEROMONE_DIFFUSION_RATE / 8f;
-                            }
+                    // Diagonal: (1,1), (1,-1), (-1,1), (-1,-1)
+                    int[] diagX = { 1, 1, -1, -1 };
+                    int[] diagY = { 1, -1, 1, -1 };
+                    for (int i = 0; i < 4; i++)
+                    {
+                        int nx = x + diagX[i];
+                        int ny = y + diagY[i];
+                        if (nx >= 0 && nx < _width && ny >= 0 && ny < _height)
+                        {
+                            diffused += layer[nx, ny] * diagonalShare;
                         }
                     }
 
@@ -71,12 +86,13 @@ public class PheromoneLayer
                 }
             }
 
-            // Evaporate
+            // Evaporation: hybrid model (percentage + fixed amount)
             for (int x = 0; x < _width; x++)
             {
                 for (int y = 0; y < _height; y++)
                 {
-                    temp[x, y] *= (1 - Constants.PHEROMONE_EVAPORATION_RATE);
+                    float percentageEvaporation = temp[x, y] * Constants.PHEROMONE_EVAPORATION_PERCENTAGE;
+                    temp[x, y] = Math.Max(0f, temp[x, y] - percentageEvaporation - Constants.PHEROMONE_EVAPORATION_FIXED);
                 }
             }
 

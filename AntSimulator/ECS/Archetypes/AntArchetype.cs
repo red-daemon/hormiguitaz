@@ -52,7 +52,7 @@ public class AntArchetype
         _ants[id] = new AntComponent
         {
             ColonyId = colonyId,
-            State = Agents.AntState.Exploring,
+            State = Agents.AntState.Idle,
             Energy = Constants.DEFAULT_ENERGY,
             TicksInState = 0
         };

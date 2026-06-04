@@ -53,6 +53,18 @@ public class BehaviorSystem : ISystem
             {
                 ants[i].State = decision.NewState.Value;
             }
+
+            // Apply orientation change if any
+            if (decision.NewOrientation.HasValue)
+            {
+                ants[i].Orientation = decision.NewOrientation.Value;
+            }
+
+            // Apply position change if any
+            if (decision.NewPosition.HasValue)
+            {
+                positions[i] = decision.NewPosition.Value;
+            }
         }
     }
 }

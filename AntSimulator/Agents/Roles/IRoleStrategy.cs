@@ -10,6 +10,8 @@ public struct RoleDecision
 {
     public AntAction Action;
     public AntState? NewState;
+    public float? NewOrientation;
+    public Vector2? NewPosition;
 }
 
 public interface IRoleStrategy

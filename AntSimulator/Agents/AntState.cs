@@ -4,5 +4,6 @@ public enum AntState
 {
     Exploring,
     Returning,
+    Idle,
     Dead
 }

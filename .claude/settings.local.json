@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(dotnet build *)",
+      "WebSearch",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\bgaxiola\\\\OneDrive - Capgemini\\\\Projects\\\\Ants\\\\ant_simulator\" -Filter \"*.cs\" -Recurse)",
+      "Bash(Select-String -Pattern \"public struct AntAction|public class AntAction\")"
     ]
   }
 }

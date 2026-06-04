@@ -1,8 +1,15 @@
 # 🔧 Technical Design Document - Ant Simulator
 
 **Status:** Draft  
-**Version:** 1.0  
-**Last Updated:** 2026-06-02
+**Version:** 1.1  
+**Last Updated:** 2026-06-04
+
+### Cambios Recientes (v1.1)
+
+- ✅ **Difusión Anisotrópica**: Pheromones ahora difunden con mayor intensidad en direcciones ortogonales (70%) vs. diagonales (30%), creando senderos más rectos y realistas
+- ✅ **Evaporación Híbrida**: Modelo de evaporación mejorado que combina porcentaje + cantidad fija para evitar persistencia indefinida de feromonas viejas
+- ✅ **RoleDecision Extendida**: Roles ahora pueden solicitar cambios de orientación y posición además de velocidad, permitiendo comportamientos más flexibles
+- ✅ **Immutability Enforced**: BehaviorSystem aplica cambios de estado/orientación/posición desde RoleDecision, manteniendo roles como estrategias puras
 
 ---
 
@@ -326,8 +333,24 @@ public class BehaviorSystem : ISystem
                 traits: world.Colonies[ants[i].ColonyId].Traits
             );
             
-            // Aplicar acción a velocidad (será consumida por MovementSystem)
-            // ...
+            // Aplicar cambios de estado (si existen)
+            if (action.NewState.HasValue)
+            {
+                ants[i].State = action.NewState.Value;
+            }
+            
+            // Aplicar cambios de orientación (si existen)
+            if (action.NewOrientation.HasValue)
+            {
+                ants[i].Orientation = action.NewOrientation.Value;
+            }
+            
+            // Aplicar cambios de posición (si existen)
+            // Nota: Esto permite cambios de posición directa (ej. teletransporte, salto)
+            if (action.NewPosition.HasValue)
+            {
+                positions[i] = action.NewPosition.Value;
+            }
         }
     }
 }
@@ -473,8 +496,14 @@ public class PheromoneLayer
     // Arrays 2D por colonia para evitar interferencia
     private Dictionary<int, float[,]> _coloniesData;  // [x, y] → intensidad
     
-    public void Diffuse(float diffusionRate) { ... }
-    public void Evaporate(float evaporationRate) { ... }
+    // Difusión anisotrópica: 70% ortogonal (arriba/abajo/izq/der), 30% diagonal
+    // Esto crea senderos más rectos y predecibles que la difusión isotrópica uniforme
+    public void Diffuse(float orthogonalWeight = 0.7f, float diagonalWeight = 0.3f) { ... }
+    
+    // Evaporación híbrida: porcentaje + cantidad fija
+    // Evita que feromonas viejas persistan indefinidamente (cantidad fija)
+    // pero también permite atenuación proporcional (porcentaje)
+    public void Evaporate(float evaporationPercentage, float evaporationFixed) { ... }
 }
 
 public enum PheromoneType { Food, Return, Alert }
@@ -778,7 +807,27 @@ public class GravitySystem : ISystem
 world.RegisterSystem(new GravitySystem());
 ```
 
-### 9.2 Agregar un nuevo Rol
+### 9.2 Estructura de RoleDecision
+
+La interfaz `IRoleStrategy` retorna `RoleDecision`, que es un contenedor para múltiples tipos de cambios que un rol puede solicitar:
+
+```csharp
+public struct RoleDecision
+{
+    public AntAction Action;           // Acción de movimiento (velocidad)
+    public AntState? NewState;         // Cambio de estado (opcional)
+    public float? NewOrientation;      // Cambio de orientación (ángulo, opcional)
+    public Vector2? NewPosition;       // Cambio de posición (opcional, teleportación/salto)
+}
+```
+
+**Notas:**
+- Solo `Action` es obligatorio
+- Los otros campos usan `nullable` (`?`) para ser opcionales
+- `NewPosition` debe usarse raramente (solo para comportamientos especiales)
+- La inmutabilidad se enforza: roles no mutan directamente el estado, solo retornan decisiones
+
+### 9.3 Agregar un nuevo Rol
 
 1. Implementar `IRoleStrategy`
 2. Override `DecideAction()`
@@ -787,17 +836,23 @@ world.RegisterSystem(new GravitySystem());
 ```csharp
 public class ScoutRole : IRoleStrategy
 {
-    public AntAction DecideAction(int id, Vector2 pos, AntComponent ant, 
-                                  GridSystem grid, PheromoneGrid pheromones,
-                                  ColonyTraits traits)
+    public RoleDecision DecideAction(int id, Vector2 pos, AntComponent ant, 
+                                     GridSystem grid, PheromoneGrid pheromones,
+                                     ColonyTraits traits, Vector2 nestPosition)
     {
         // Lógica de explorador
-        return new AntAction { Velocity = ... };
+        return new RoleDecision
+        {
+            Action = new AntAction { Velocity = ... },
+            NewState = AntState.Exploring,     // Cambio de estado (opcional)
+            NewOrientation = targetAngle,      // Cambio de orientación (opcional)
+            NewPosition = null                  // Cambio de posición (opcional, solo si es necesario)
+        };
     }
 }
 ```
 
-### 9.3 Agregar un nuevo Componente
+### 9.4 Agregar un nuevo Componente
 
 1. Crear struct (ej: `SensingComponent`)
 2. Agregar array a `AntArchetype`

@@ -129,8 +129,10 @@ public class SimulationEngine
 
     private void Restart()
     {
+        // Create new world (don't create new renderer/window)
         _world = new World(_gridWidth, _gridHeight);
-        _renderer = new RaylibRenderer(_world, _gridWidth, _gridHeight, _cellPixelSize);
+        // Update renderer's world reference
+        (_renderer as RaylibRenderer)?.SetWorld(_world);
         InitializeWorld(_gridWidth, _gridHeight, _antCount);
         RegisterSystems();
     }
