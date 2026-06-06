@@ -1,3 +1,7 @@
+---
+name: discuss
+---
+
 # discuss
 
 Have a conversation about the project without automatic code changes or plan mode.

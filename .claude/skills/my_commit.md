@@ -1,3 +1,7 @@
+---
+name: my_commit
+---
+
 # my_commit
 
 Automated commit workflow: analyze changes, generate conventional commit message, and execute commit script.

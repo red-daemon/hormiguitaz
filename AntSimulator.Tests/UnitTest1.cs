@@ -1,4 +1,4 @@
-﻿using System.Numerics;
+using System.Numerics;
 using AntSimulator;
 using AntSimulator.Colonies;
 using AntSimulator.ECS.Components;

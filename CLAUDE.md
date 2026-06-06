@@ -224,6 +224,14 @@ Roles are strategies — same interface, different implementations.
 - Use xUnit `[Fact]` for parameterless, `[Theory]` for parameterized
 - Assertions: `Assert.*` methods
 
+**Comentarios (Español):**
+- ✅ **OBLIGATORIO:** Comentarios en español para clases, métodos y lógica compleja
+- ✅ **Nivel de clase:** Comentario antes de `public class` explicando propósito
+- ✅ **Nivel de método:** Comentario antes de método explicando qué hace, parámetros y valor de retorno
+- ✅ **Lógica compleja:** Comentarios inline en español explicando por qué (no el qué)
+- ❌ NO auto-explicar código legible: `// incrementar contador` está prohibido si el código ya lo dice
+- ❌ NO comentarios en inglés en el cuerpo (metadata en ingles está bien: `[Fact]`, namespaces)
+
 ---
 
 ## Quick Debugging Tips

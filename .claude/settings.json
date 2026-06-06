@@ -1,0 +1,7 @@
+{
+  "skillOverrides": {
+    "my_commit": "on",
+    "update_docs": "on",
+    "discuss": "on"
+  }
+}

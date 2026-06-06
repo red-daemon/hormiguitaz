@@ -1,3 +1,7 @@
+---
+name: update_docs
+---
+
 # update_docs
 
 Analyze code changes and update project documentation accordingly.
