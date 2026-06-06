@@ -1,0 +1,46 @@
+{
+  "scenarios": {
+    "default": {
+      "description": "Escenario por defecto - centro explorando",
+      "position": { "x": 0.09774056, "y": 0.002190744 },               
+      "orientation": 0.009452085,
+      "state": "Exploring"
+    },
+    "wall-top": {
+      "description": "Hormiga acercándose a pared superior",
+      "position": { "x": 1, "y": 0.5 },
+      "orientation": 4.712389,
+      "state": "Exploring"
+    },
+    "wall-bottom": {
+      "description": "Hormiga acercándose a pared inferior",
+      "position": { "x": 1, "y": 2.5 },
+      "orientation": 1.570796,
+      "state": "Exploring"
+    },
+    "wall-left": {
+      "description": "Hormiga acercándose a pared izquierda",
+      "position": { "x": 0.5, "y": 1 },
+      "orientation": 3.141593,
+      "state": "Exploring"
+    },
+    "wall-right": {
+      "description": "Hormiga acercándose a pared derecha",
+      "position": { "x": 2.5, "y": 1 },
+      "orientation": 0,
+      "state": "Exploring"
+    },
+    "center": {
+      "description": "Hormiga en el centro, explorando",
+      "position": { "x": 1, "y": 1 },
+      "orientation": 0.7853981,
+      "state": "Exploring"
+    },
+    "idle": {
+      "description": "Hormiga en estado Idle",
+      "position": { "x": 1, "y": 1 },
+      "orientation": 0,
+      "state": "Idle"
+    }
+  }
+}

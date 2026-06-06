@@ -58,6 +58,10 @@ public class BehaviorSystem : ISystem
             if (decision.NewOrientation.HasValue)
             {
                 ants[i].Orientation = decision.NewOrientation.Value;
+
+                // Normalizar si es negativa
+                if (ants[i].Orientation < 0)
+                    ants[i].Orientation += 2 * MathF.PI;
             }
 
             // Apply position change if any
