@@ -95,36 +95,28 @@ public class WorkerRole : IRoleStrategy
             else if (Constants.PHEROMONES_ENABLED)
             {
                 Vector2 returnDirection = FindMaxPheromone(position, pheromones, ant.ColonyId, PheromoneType.Return, grid);
-                if (returnDirection.LengthSquared() > 0.1f)
+                if (returnDirection.LengthSquared() > 0.1f && CheckPheromoneThreshold(position, pheromones, ant.ColonyId, PheromoneType.Return, grid, 0.05f))
                 {
                     newState = AntState.Working;
                     newHasFood = false;
                     newOrientation = MathF.Atan2(returnDirection.Y, returnDirection.X);
                     velocity = returnDirection * traits.Speed;
                 }
-                // Si no hay RETURN, busca rastro EXPLORE
-                else
-                {
-                    Vector2 foodDirection = FindMaxPheromone(position, pheromones, ant.ColonyId, PheromoneType.Food, grid);
-                    if (foodDirection.LengthSquared() > 0.1f && CheckPheromoneThreshold(position, pheromones, ant.ColonyId, PheromoneType.Food, grid, 0.05f))
-                    {
-                        newOrientation = MathF.Atan2(foodDirection.Y, foodDirection.X);
-                        velocity = foodDirection * traits.Speed;
-                    }
-                }
+                // Si no hay RETURN → usa FASE 3 (movimiento serpenteante)
             }
         }
 
-        // === ESTADO: WORKING (sin comida) - siguiendo RETURN hacia comida ===
+        // === ESTADO: WORKING (sin comida) - siguiendo RETURN inverso hacia comida ===
         else if (ant.State == AntState.Working && !ant.HasFood && Constants.PHEROMONES_ENABLED)
         {
             Vector2 returnDirection = FindMaxPheromone(position, pheromones, ant.ColonyId, PheromoneType.Return, grid);
 
             if (returnDirection.LengthSquared() > 0.1f)
             {
-                // Sigue RETURN normal (hacia comida)
-                newOrientation = MathF.Atan2(returnDirection.Y, returnDirection.X);
-                velocity = returnDirection * traits.Speed;
+                // Sigue RETURN en dirección INVERSA +180° (porque RETURN va nido→comida)
+                float invertedAngle = MathF.Atan2(returnDirection.Y, returnDirection.X) + MathF.PI;
+                newOrientation = invertedAngle;
+                velocity = new Vector2(MathF.Cos(invertedAngle), MathF.Sin(invertedAngle)) * traits.Speed;
 
                 // Si encuentra comida real → toma carga
                 if (currentCell.Type == CellType.Food)
@@ -134,12 +126,12 @@ public class WorkerRole : IRoleStrategy
             }
             else
             {
-                // Pierde rastro RETURN → vuelve a EXPLORING
+                // Pierde rastro RETURN → vuelve a EXPLORING (se acabó la comida)
                 newState = AntState.Exploring;
             }
         }
 
-        // === ESTADO: WORKING (con comida) - siguiendo RETURN hacia nido ===
+        // === ESTADO: WORKING (con comida) - siguiendo RETURN normal hacia nido ===
         else if (ant.State == AntState.Working && ant.HasFood && Constants.PHEROMONES_ENABLED)
         {
             // Llegó al nido
@@ -165,10 +157,10 @@ public class WorkerRole : IRoleStrategy
                 newOrientation = MathF.Atan2(returnDirection.Y, returnDirection.X);
                 velocity = returnDirection * traits.Speed;
             }
-            // Si pierde rastro: usa FASE 3 pero busca Nest o RETURN (ignora EXPLORE)
+            // Si pierde rastro: usa FASE 3 (busca aleatoriamente hasta encontrar RETURN o Nest; ignora EXPLORE)
         }
 
-        // === ESTADO: RETURNING (constructora del puente) ===
+        // === ESTADO: RETURNING - sigue EXPLORE inverso para construir puente ===
         else if (ant.State == AntState.Returning && ant.HasFood && Constants.PHEROMONES_ENABLED)
         {
             // Llegó al nido
@@ -186,8 +178,8 @@ public class WorkerRole : IRoleStrategy
                 };
             }
 
-            // Busca rastro EXPLORE (propio) en dirección INVERSA +180°
-            Vector2 exploreDirection = FindMaxPheromone(position, pheromones, ant.ColonyId, PheromoneType.Food, grid);
+            // Busca rastro EXPLORE en dirección INVERSA +180° (porque EXPLORE va nido→comida)
+            Vector2 exploreDirection = FindMaxPheromone(position, pheromones, ant.ColonyId, PheromoneType.Explore, grid);
 
             if (exploreDirection.LengthSquared() > 0.1f)
             {
@@ -198,7 +190,7 @@ public class WorkerRole : IRoleStrategy
             }
             else
             {
-                // Pierde rastro: busca ciegamente con FASE 3
+                // Pierde rastro EXPLORE: usa FASE 3
                 // Si encuentra RETURN → sigue normal
                 Vector2 returnDirection = FindMaxPheromone(position, pheromones, ant.ColonyId, PheromoneType.Return, grid);
                 if (returnDirection.LengthSquared() > 0.1f)

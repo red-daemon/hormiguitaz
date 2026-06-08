@@ -21,13 +21,13 @@ public class PheromoneSystem : ISystem
             int y = (int)positions[i].Y;
             var colonyId = ants[i].ColonyId;
 
-            // EXPLORING: deposita EXPLORE (ligera, duradera)
+            // EXPLORING: deposita EXPLORE
             if (ants[i].State == AntState.Exploring)
             {
                 pheromones.Deposit(
                     x, y,
                     colonyId,
-                    PheromoneType.Food,
+                    PheromoneType.Explore,
                     Constants.EXPLORE_DEPOSIT_RATE
                 );
             }
@@ -41,8 +41,8 @@ public class PheromoneSystem : ISystem
                     Constants.RETURN_DEPOSIT_RATE
                 );
             }
-            // RETURNING (constructora del puente): deposita RETURN
-            else if (ants[i].State == AntState.Returning && ants[i].HasFood)
+            // RETURNING: deposita RETURN (construye puente)
+            else if (ants[i].State == AntState.Returning)
             {
                 pheromones.Deposit(
                     x, y,

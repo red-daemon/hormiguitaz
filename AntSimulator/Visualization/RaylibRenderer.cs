@@ -82,11 +82,11 @@ public class RaylibRenderer : IRenderer
                 int px = x * _cellPixelSize;
                 int py = y * _cellPixelSize;
 
-                // Dibujar feromona de comida (NARANJA)
-                float foodPheromone = _world.Pheromones.GetPheromone(x, y, 1, PheromoneType.Food);
-                if (foodPheromone > 0f)
+                // Dibujar feromona de exploración (NARANJA)
+                float explorePheromone = _world.Pheromones.GetPheromone(x, y, 1, PheromoneType.Explore);
+                if (explorePheromone > 0f)
                 {
-                    int intensity = (int)(Math.Clamp(foodPheromone, 0f, 1f) * 255);
+                    int intensity = (int)(Math.Clamp(explorePheromone, 0f, 1f) * 255);
                     Raylib.DrawRectangle(px, py, _cellPixelSize, _cellPixelSize, new Color(255, 165, 0, intensity));
                 }
 

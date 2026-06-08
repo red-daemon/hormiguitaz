@@ -8,7 +8,7 @@ public class PheromoneGrid
     {
         _layers = new Dictionary<PheromoneType, PheromoneLayer>
         {
-            { PheromoneType.Food, new PheromoneLayer(width, height) },
+            { PheromoneType.Explore, new PheromoneLayer(width, height) },
             { PheromoneType.Return, new PheromoneLayer(width, height) },
             { PheromoneType.Alert, new PheromoneLayer(width, height) }
         };
