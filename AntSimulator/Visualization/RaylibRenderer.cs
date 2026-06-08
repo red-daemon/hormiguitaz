@@ -79,17 +79,31 @@ public class RaylibRenderer : IRenderer
         {
             for (int y = 0; y < _gridHeight; y++)
             {
-                float pheromone = _world.Pheromones.GetPheromone(x, y, 1, PheromoneType.Food);
+                int px = x * _cellPixelSize;
+                int py = y * _cellPixelSize;
 
-                if (pheromone > 0f)
+                // Dibujar feromona de comida (NARANJA)
+                float foodPheromone = _world.Pheromones.GetPheromone(x, y, 1, PheromoneType.Food);
+                if (foodPheromone > 0f)
                 {
-                    // Interpolar de negro (0,0,0) a naranja (255, 165, 0)
-                    byte r = (byte)(Math.Clamp(pheromone, 0f, 1f) * 255);
-                    byte g = (byte)(Math.Clamp(pheromone, 0f, 1f) * 165);
+                    int intensity = (int)(Math.Clamp(foodPheromone, 0f, 1f) * 255);
+                    Raylib.DrawRectangle(px, py, _cellPixelSize, _cellPixelSize, new Color(255, 165, 0, intensity));
+                }
 
-                    int px = x * _cellPixelSize;
-                    int py = y * _cellPixelSize;
-                    Raylib.DrawRectangle(px, py, _cellPixelSize, _cellPixelSize, new Color((int)r, (int)g, 0, 255));
+                // Dibujar feromona de retorno (VERDE)
+                float returnPheromone = _world.Pheromones.GetPheromone(x, y, 1, PheromoneType.Return);
+                if (returnPheromone > 0f)
+                {
+                    int intensity = (int)(Math.Clamp(returnPheromone, 0f, 1f) * 255);
+                    Raylib.DrawRectangle(px, py, _cellPixelSize, _cellPixelSize, new Color(100, 255, 100, intensity));
+                }
+
+                // Dibujar feromona de alerta (ROJO)
+                float alertPheromone = _world.Pheromones.GetPheromone(x, y, 1, PheromoneType.Alert);
+                if (alertPheromone > 0f)
+                {
+                    int intensity = (int)(Math.Clamp(alertPheromone, 0f, 1f) * 255);
+                    Raylib.DrawRectangle(px, py, _cellPixelSize, _cellPixelSize, new Color(255, 0, 0, intensity));
                 }
             }
         }

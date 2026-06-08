@@ -8,18 +8,10 @@ namespace AntSimulator.Agents.Roles;
 
 /// <summary>
 /// Estrategia de comportamiento para hormigas obreras.
-/// Maneja tres fases de vida: espera en el nido, salida inicial, y exploración/retorno.
+/// Máquina de estados: EXPLORING → WORKING → RETURNING → IDLE
 /// </summary>
 public class WorkerRole : IRoleStrategy
 {
-    /// <summary>
-    /// Calcula la siguiente acción para una hormiga obrera.
-    ///
-    /// Fases:
-    /// 1. ESPERA: Permanecer en el nido hasta que termine el tiempo de espera
-    /// 2. SALIDA: Elegir orientación aleatoria, encontrar celda válida de salida, teletransportar
-    /// 3. MOVIMIENTO: Caminar en línea recta, cambiar de estado al encontrar comida, retornar al nido
-    /// </summary>
     public RoleDecision DecideAction(
         int id,
         Vector2 position,
@@ -32,44 +24,33 @@ public class WorkerRole : IRoleStrategy
         Vector2 velocity = Vector2.Zero;
         AntState? newState = null;
         float newOrientation = ant.Orientation;
+        bool? newHasFood = null;
         var currentCell = grid.GetCell((int)position.X, (int)position.Y);
 
-        // FASE 1: Esperando en el nido
-        // La hormiga no se mueve hasta que termine su tiempo de espera (WaitTicksRemaining)
+        // FASE 1: Esperando en el nido (IDLE)
         if (currentCell.Type == CellType.Nest && ant.WaitTicksRemaining > 0)
         {
             velocity = Vector2.Zero;
             return new RoleDecision { Action = new AntAction { Velocity = velocity }, NewState = newState, NewOrientation = null };
         }
 
-        // FASE 2: Saliendo del nido (primera vez)
-        // Se ejecuta cuando: hormiga está en nido, tiempo de espera terminó, y no tiene orientación asignada
+        // FASE 2: Saliendo del nido
         if (currentCell.Type == CellType.Nest && ant.WaitTicksRemaining == 0 && ant.Orientation < 0)
         {
-            // Generar orientación aleatoria entre 0 y 2π radianes
             newOrientation = (float)(Random.Shared.NextDouble() * Math.PI * 2);
-
-            // Convertir orientación a vector dirección usando funciones trigonométricas
-            Vector2 direction = new Vector2(
-                MathF.Cos(newOrientation),
-                MathF.Sin(newOrientation)
-            );
-
-            // Buscar la primera celda NO-NIDO en la dirección calculada
-            // Comenzamos desde el centro del nido y avanzamos paso a paso
+            Vector2 direction = new Vector2(MathF.Cos(newOrientation), MathF.Sin(newOrientation));
             Vector2 destPos = nestPosition;
+
             for (int step = 1; step < Math.Max(grid.Width, grid.Height); step++)
             {
                 Vector2 searchPos = nestPosition + direction * step;
                 int checkX = (int)searchPos.X;
                 int checkY = (int)searchPos.Y;
 
-                // Si salimos del grid, detener búsqueda
                 if (checkX < 0 || checkX >= grid.Width || checkY < 0 || checkY >= grid.Height)
                     break;
 
                 var checkCell = grid.GetCell(checkX, checkY);
-                // Si encontramos una celda no-nido, usarla como destino y salir
                 if (checkCell.Type != CellType.Nest)
                 {
                     destPos = new Vector2(checkX, checkY);
@@ -77,14 +58,11 @@ public class WorkerRole : IRoleStrategy
                 }
             }
 
-            // Solo salir del nido si encontramos una celda válida de salida
-            // Si no hay salida en esa dirección, la hormiga se queda e intentará en el siguiente tick
             if (destPos != nestPosition)
             {
-                velocity = Vector2.Zero;
                 return new RoleDecision
                 {
-                    Action = new AntAction { Velocity = velocity },
+                    Action = new AntAction { Velocity = Vector2.Zero },
                     NewOrientation = newOrientation,
                     NewPosition = destPos,
                     NewState = AntState.Exploring
@@ -92,98 +70,211 @@ public class WorkerRole : IRoleStrategy
             }
         }
 
-        // FASE 3: Movimiento por orientación
-        // La hormiga camina en la dirección de su orientación si ya tiene una asignada (>= 0)
+        // FASE 3: Movimiento base (orientación)
         if (newOrientation >= 0)
         {
-            // Calcular velocidad como vector unitario en la dirección de orientación, escalado por velocidad de colonia
             velocity = new Vector2(
                 MathF.Cos(newOrientation),
                 MathF.Sin(newOrientation)
             ) * traits.Speed;
 
-            // Agregar pequeña variación aleatoria a la orientación para movimiento serpenteante (±1°)
             float deltaRotation = (float)((Random.Shared.NextDouble() - 0.5) * 2 * Math.PI / 180);
             newOrientation += deltaRotation;
         }
 
-        // Cambiar a estado RETURNING si la hormiga encuentra comida mientras explora
-        if (ant.State == AntState.Exploring && currentCell.Type == CellType.Food)
-        {
-            newState = AntState.Returning;
-        }
-
-        // Cambiar a estado EXPLORING si la hormiga está cerca del nido mientras retorna
-        // Distancia umbral: 3 unidades desde el centro del nido
-        if (ant.State == AntState.Returning && Vector2.Distance(position, nestPosition) < 3f)
-        {
-            newState = AntState.Exploring;
-        }
-
-        // Muestreo de feromonas mientras explora (fuera del nido)
-        // Busca en un radio 3x3 alrededor de la hormiga la concentración máxima de feromonas de comida
+        // === ESTADO: EXPLORING ===
         if (ant.State == AntState.Exploring && currentCell.Type != CellType.Nest)
         {
-            Vector2 pheromoneDirection = Vector2.Zero;
-            float maxPheromone = 0f;
-
-            // Iterar sobre todas las celdas en el radio 3x3
-            for (int dx = -3; dx <= 3; dx++)
+            // Si encuentra comida real → RETURNING (primero en crear puente)
+            if (currentCell.Type == CellType.Food)
             {
-                for (int dy = -3; dy <= 3; dy++)
+                newState = AntState.Returning;
+                newHasFood = true;
+            }
+            // Busca rastro RETURN con prioridad absoluta
+            else if (Constants.PHEROMONES_ENABLED)
+            {
+                Vector2 returnDirection = FindMaxPheromone(position, pheromones, ant.ColonyId, PheromoneType.Return, grid);
+                if (returnDirection.LengthSquared() > 0.1f)
                 {
-                    int nx = (int)position.X + dx;
-                    int ny = (int)position.Y + dy;
-
-                    // Ignorar celdas fuera del grid
-                    if (nx < 0 || nx >= grid.Width || ny < 0 || ny >= grid.Height)
-                        continue;
-
-                    // Obtener concentración de feromona de comida en esta celda
-                    float pheromone = pheromones.GetPheromone(nx, ny, ant.ColonyId, PheromoneType.Food);
-
-                    // Rastrear celda con máxima concentración de feromona
-                    if (pheromone > maxPheromone)
+                    newState = AntState.Working;
+                    newHasFood = false;
+                    newOrientation = MathF.Atan2(returnDirection.Y, returnDirection.X);
+                    velocity = returnDirection * traits.Speed;
+                }
+                // Si no hay RETURN, busca rastro EXPLORE
+                else
+                {
+                    Vector2 foodDirection = FindMaxPheromone(position, pheromones, ant.ColonyId, PheromoneType.Food, grid);
+                    if (foodDirection.LengthSquared() > 0.1f && CheckPheromoneThreshold(position, pheromones, ant.ColonyId, PheromoneType.Food, grid, 0.05f))
                     {
-                        maxPheromone = pheromone;
-                        Vector2 dir = new Vector2(nx - position.X, ny - position.Y);
-                        // Validar que el vector dirección sea significativo (evitar vectores muy cortos)
-                        if (dir.LengthSquared() > 0.1f)
-                        {
-                            pheromoneDirection = Vector2.Normalize(dir);
-                        }
+                        newOrientation = MathF.Atan2(foodDirection.Y, foodDirection.X);
+                        velocity = foodDirection * traits.Speed;
                     }
                 }
             }
-
-            // Si encontramos un rastro de feromona fuerte, seguirlo
-            // NOTA: Temporalmente deshabilitado (& false) para debug. Habilitar cuando sea necesario
-            if (maxPheromone > 0.05f && pheromoneDirection.LengthSquared() > 0.1f && false)
-            {
-                newOrientation = MathF.Atan2(pheromoneDirection.Y, pheromoneDirection.X);
-                velocity = pheromoneDirection * traits.Speed;
-            }
         }
-        // Comportamiento de retorno al nido
-        // Cuando la hormiga está en estado RETURNING, calcula el vector hacia el nido y se mueve en esa dirección
-        else if (ant.State == AntState.Returning)
+
+        // === ESTADO: WORKING (sin comida) - siguiendo RETURN hacia comida ===
+        else if (ant.State == AntState.Working && !ant.HasFood && Constants.PHEROMONES_ENABLED)
         {
-            Vector2 direction = nestPosition - position;
-            // Si está lo suficientemente lejos del nido, moverse hacia él
-            if (direction.LengthSquared() > 1f)
+            Vector2 returnDirection = FindMaxPheromone(position, pheromones, ant.ColonyId, PheromoneType.Return, grid);
+
+            if (returnDirection.LengthSquared() > 0.1f)
             {
-                velocity = Vector2.Normalize(direction) * traits.Speed;
-                newOrientation = MathF.Atan2(direction.Y, direction.X);
+                // Sigue RETURN normal (hacia comida)
+                newOrientation = MathF.Atan2(returnDirection.Y, returnDirection.X);
+                velocity = returnDirection * traits.Speed;
+
+                // Si encuentra comida real → toma carga
+                if (currentCell.Type == CellType.Food)
+                {
+                    newHasFood = true;
+                }
             }
             else
             {
-                // Si está muy cerca, detener el movimiento
-                velocity = Vector2.Zero;
+                // Pierde rastro RETURN → vuelve a EXPLORING
+                newState = AntState.Exploring;
             }
         }
 
-        // Retornar la decisión con velocidad calculada, cambios de estado y orientación
-        // newOrientation solo será asignado por BehaviorSystem si es diferente de null
-        return new RoleDecision { Action = new AntAction { Velocity = velocity }, NewState = newState, NewOrientation = newOrientation };
+        // === ESTADO: WORKING (con comida) - siguiendo RETURN hacia nido ===
+        else if (ant.State == AntState.Working && ant.HasFood && Constants.PHEROMONES_ENABLED)
+        {
+            // Llegó al nido
+            if (currentCell.Type == CellType.Nest)
+            {
+                newState = AntState.Idle;
+                newHasFood = false;
+                velocity = Vector2.Zero;
+                return new RoleDecision
+                {
+                    Action = new AntAction { Velocity = velocity },
+                    NewState = newState,
+                    NewOrientation = newOrientation,
+                    NewHasFood = newHasFood
+                };
+            }
+
+            Vector2 returnDirection = FindMaxPheromone(position, pheromones, ant.ColonyId, PheromoneType.Return, grid);
+
+            if (returnDirection.LengthSquared() > 0.1f)
+            {
+                // Sigue RETURN normal (hacia nido)
+                newOrientation = MathF.Atan2(returnDirection.Y, returnDirection.X);
+                velocity = returnDirection * traits.Speed;
+            }
+            // Si pierde rastro: usa FASE 3 pero busca Nest o RETURN (ignora EXPLORE)
+        }
+
+        // === ESTADO: RETURNING (constructora del puente) ===
+        else if (ant.State == AntState.Returning && ant.HasFood && Constants.PHEROMONES_ENABLED)
+        {
+            // Llegó al nido
+            if (currentCell.Type == CellType.Nest)
+            {
+                newState = AntState.Idle;
+                newHasFood = false;
+                velocity = Vector2.Zero;
+                return new RoleDecision
+                {
+                    Action = new AntAction { Velocity = velocity },
+                    NewState = newState,
+                    NewOrientation = newOrientation,
+                    NewHasFood = newHasFood
+                };
+            }
+
+            // Busca rastro EXPLORE (propio) en dirección INVERSA +180°
+            Vector2 exploreDirection = FindMaxPheromone(position, pheromones, ant.ColonyId, PheromoneType.Food, grid);
+
+            if (exploreDirection.LengthSquared() > 0.1f)
+            {
+                // Invierte dirección (+180°)
+                float invertedAngle = MathF.Atan2(exploreDirection.Y, exploreDirection.X) + MathF.PI;
+                newOrientation = invertedAngle;
+                velocity = new Vector2(MathF.Cos(invertedAngle), MathF.Sin(invertedAngle)) * traits.Speed;
+            }
+            else
+            {
+                // Pierde rastro: busca ciegamente con FASE 3
+                // Si encuentra RETURN → sigue normal
+                Vector2 returnDirection = FindMaxPheromone(position, pheromones, ant.ColonyId, PheromoneType.Return, grid);
+                if (returnDirection.LengthSquared() > 0.1f)
+                {
+                    newOrientation = MathF.Atan2(returnDirection.Y, returnDirection.X);
+                    velocity = returnDirection * traits.Speed;
+                }
+                // Si encuentra EXPLORE → sigue inverso
+                else if (exploreDirection.LengthSquared() > 0.1f)
+                {
+                    float invertedAngle = MathF.Atan2(exploreDirection.Y, exploreDirection.X) + MathF.PI;
+                    newOrientation = invertedAngle;
+                    velocity = new Vector2(MathF.Cos(invertedAngle), MathF.Sin(invertedAngle)) * traits.Speed;
+                }
+                // Si nada: usa FASE 3 (movimiento serpenteante)
+            }
+        }
+
+        return new RoleDecision
+        {
+            Action = new AntAction { Velocity = velocity },
+            NewState = newState,
+            NewOrientation = newOrientation,
+            NewHasFood = newHasFood
+        };
+    }
+
+    private Vector2 FindMaxPheromone(Vector2 position, PheromoneGrid pheromones, int colonyId, PheromoneType type, GridSystem grid)
+    {
+        Vector2 pheromoneDirection = Vector2.Zero;
+        float maxPheromone = 0f;
+
+        for (int dx = -3; dx <= 3; dx++)
+        {
+            for (int dy = -3; dy <= 3; dy++)
+            {
+                int nx = (int)position.X + dx;
+                int ny = (int)position.Y + dy;
+
+                if (nx < 0 || nx >= grid.Width || ny < 0 || ny >= grid.Height)
+                    continue;
+
+                float pheromone = pheromones.GetPheromone(nx, ny, colonyId, type);
+
+                if (pheromone > maxPheromone)
+                {
+                    maxPheromone = pheromone;
+                    Vector2 dir = new Vector2(nx - position.X, ny - position.Y);
+                    if (dir.LengthSquared() > 0.1f)
+                    {
+                        pheromoneDirection = Vector2.Normalize(dir);
+                    }
+                }
+            }
+        }
+
+        return pheromoneDirection;
+    }
+
+    private bool CheckPheromoneThreshold(Vector2 position, PheromoneGrid pheromones, int colonyId, PheromoneType type, GridSystem grid, float threshold)
+    {
+        for (int dx = -3; dx <= 3; dx++)
+        {
+            for (int dy = -3; dy <= 3; dy++)
+            {
+                int nx = (int)position.X + dx;
+                int ny = (int)position.Y + dy;
+
+                if (nx < 0 || nx >= grid.Width || ny < 0 || ny >= grid.Height)
+                    continue;
+
+                if (pheromones.GetPheromone(nx, ny, colonyId, type) > threshold)
+                    return true;
+            }
+        }
+
+        return false;
     }
 }

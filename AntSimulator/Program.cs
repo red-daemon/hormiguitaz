@@ -1,4 +1,4 @@
-using System.Numerics;
+﻿using System.Numerics;
 using AntSimulator.Agents;
 using AntSimulator.Core;
 using AntSimulator.Lab;
@@ -57,6 +57,6 @@ if (args.Contains("--debug-explore"))
 else
 {
     // Modo normal: simulación 100x100
-    var engine = new SimulationEngine(gridWidth: 100, gridHeight: 100, antCount: 10, cellPixelSize: 10);
+    var engine = new SimulationEngine(gridWidth: 100, gridHeight: 100, antCount: 1, cellPixelSize: 10);
     engine.Run();
 }

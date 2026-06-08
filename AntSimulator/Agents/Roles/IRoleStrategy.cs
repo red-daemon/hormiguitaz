@@ -12,6 +12,7 @@ public struct RoleDecision
     public AntState? NewState;
     public float? NewOrientation;
     public Vector2? NewPosition;
+    public bool? NewHasFood;
 }
 
 public interface IRoleStrategy

@@ -2,8 +2,8 @@
   "scenarios": {
     "default": {
       "description": "Escenario por defecto - centro explorando",
-      "position": { "x": 0.09774056, "y": 0.002190744 },               
-      "orientation": 0.009452085,
+      "position": { "x": 1, "y": 1 },
+      "orientation": 0.7853981,
       "state": "Exploring"
     },
     "wall-top": {

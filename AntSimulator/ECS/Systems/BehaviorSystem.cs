@@ -69,6 +69,12 @@ public class BehaviorSystem : ISystem
             {
                 positions[i] = decision.NewPosition.Value;
             }
+
+            // Apply HasFood change if any
+            if (decision.NewHasFood.HasValue)
+            {
+                ants[i].HasFood = decision.NewHasFood.Value;
+            }
         }
     }
 }
