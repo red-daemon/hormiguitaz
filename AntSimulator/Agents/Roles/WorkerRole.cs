@@ -90,17 +90,20 @@ public class WorkerRole : IRoleStrategy
             {
                 newState = AntState.Returning;
                 newHasFood = true;
+                // Cambio brusco de 180° cuando encuentra comida
+                newOrientation = ant.Orientation + MathF.PI;
             }
             // Busca rastro RETURN con prioridad absoluta
             else if (Constants.PHEROMONES_ENABLED)
             {
-                Vector2 returnDirection = FindMaxPheromone(position, pheromones, ant.ColonyId, PheromoneType.Return, grid);
+                Vector2 returnDirection = FindPheromoneDirectionByGradient(position, pheromones, ant.ColonyId, PheromoneType.Return, grid);
                 if (returnDirection.LengthSquared() > 0.1f && CheckPheromoneThreshold(position, pheromones, ant.ColonyId, PheromoneType.Return, grid, 0.05f))
                 {
                     newState = AntState.Working;
                     newHasFood = false;
-                    newOrientation = MathF.Atan2(returnDirection.Y, returnDirection.X);
-                    velocity = returnDirection * traits.Speed;
+                    float targetAngle = MathF.Atan2(returnDirection.Y, returnDirection.X);
+                    newOrientation = SmoothOrientation(ant.Orientation, targetAngle);
+                    velocity = new Vector2(MathF.Cos(newOrientation), MathF.Sin(newOrientation)) * traits.Speed;
                 }
                 // Si no hay RETURN → usa FASE 3 (movimiento serpenteante)
             }
@@ -109,14 +112,14 @@ public class WorkerRole : IRoleStrategy
         // === ESTADO: WORKING (sin comida) - siguiendo RETURN inverso hacia comida ===
         else if (ant.State == AntState.Working && !ant.HasFood && Constants.PHEROMONES_ENABLED)
         {
-            Vector2 returnDirection = FindMaxPheromone(position, pheromones, ant.ColonyId, PheromoneType.Return, grid);
+            Vector2 returnDirection = FindPheromoneDirectionByGradient(position, pheromones, ant.ColonyId, PheromoneType.Return, grid);
 
             if (returnDirection.LengthSquared() > 0.1f)
             {
                 // Sigue RETURN en dirección INVERSA +180° (porque RETURN va nido→comida)
-                float invertedAngle = MathF.Atan2(returnDirection.Y, returnDirection.X) + MathF.PI;
-                newOrientation = invertedAngle;
-                velocity = new Vector2(MathF.Cos(invertedAngle), MathF.Sin(invertedAngle)) * traits.Speed;
+                float targetAngle = MathF.Atan2(returnDirection.Y, returnDirection.X) + MathF.PI;
+                newOrientation = SmoothOrientation(ant.Orientation, targetAngle);
+                velocity = new Vector2(MathF.Cos(newOrientation), MathF.Sin(newOrientation)) * traits.Speed;
 
                 // Si encuentra comida real → toma carga
                 if (currentCell.Type == CellType.Food)
@@ -149,13 +152,14 @@ public class WorkerRole : IRoleStrategy
                 };
             }
 
-            Vector2 returnDirection = FindMaxPheromone(position, pheromones, ant.ColonyId, PheromoneType.Return, grid);
+            Vector2 returnDirection = FindPheromoneDirectionByGradient(position, pheromones, ant.ColonyId, PheromoneType.Return, grid);
 
             if (returnDirection.LengthSquared() > 0.1f)
             {
-                // Sigue RETURN normal (hacia nido)
-                newOrientation = MathF.Atan2(returnDirection.Y, returnDirection.X);
-                velocity = returnDirection * traits.Speed;
+                // Sigue RETURN normal (hacia nido) con suavizado
+                float targetAngle = MathF.Atan2(returnDirection.Y, returnDirection.X);
+                newOrientation = SmoothOrientation(ant.Orientation, targetAngle);
+                velocity = new Vector2(MathF.Cos(newOrientation), MathF.Sin(newOrientation)) * traits.Speed;
             }
             // Si pierde rastro: usa FASE 3 (busca aleatoriamente hasta encontrar RETURN o Nest; ignora EXPLORE)
         }
@@ -179,31 +183,32 @@ public class WorkerRole : IRoleStrategy
             }
 
             // Busca rastro EXPLORE en dirección INVERSA +180° (porque EXPLORE va nido→comida)
-            Vector2 exploreDirection = FindMaxPheromone(position, pheromones, ant.ColonyId, PheromoneType.Explore, grid);
+            Vector2 exploreDirection = FindPheromoneDirectionByGradient(position, pheromones, ant.ColonyId, PheromoneType.Explore, grid);
 
             if (exploreDirection.LengthSquared() > 0.1f)
             {
-                // Invierte dirección (+180°)
+                // Invierte dirección (+180°) con suavizado
                 float invertedAngle = MathF.Atan2(exploreDirection.Y, exploreDirection.X) + MathF.PI;
-                newOrientation = invertedAngle;
-                velocity = new Vector2(MathF.Cos(invertedAngle), MathF.Sin(invertedAngle)) * traits.Speed;
+                newOrientation = SmoothOrientation(ant.Orientation, invertedAngle);
+                velocity = new Vector2(MathF.Cos(newOrientation), MathF.Sin(newOrientation)) * traits.Speed;
             }
             else
             {
                 // Pierde rastro EXPLORE: usa FASE 3
                 // Si encuentra RETURN → sigue normal
-                Vector2 returnDirection = FindMaxPheromone(position, pheromones, ant.ColonyId, PheromoneType.Return, grid);
+                Vector2 returnDirection = FindPheromoneDirectionByGradient(position, pheromones, ant.ColonyId, PheromoneType.Return, grid);
                 if (returnDirection.LengthSquared() > 0.1f)
                 {
-                    newOrientation = MathF.Atan2(returnDirection.Y, returnDirection.X);
-                    velocity = returnDirection * traits.Speed;
+                    float targetAngle = MathF.Atan2(returnDirection.Y, returnDirection.X);
+                    newOrientation = SmoothOrientation(ant.Orientation, targetAngle);
+                    velocity = new Vector2(MathF.Cos(newOrientation), MathF.Sin(newOrientation)) * traits.Speed;
                 }
                 // Si encuentra EXPLORE → sigue inverso
                 else if (exploreDirection.LengthSquared() > 0.1f)
                 {
                     float invertedAngle = MathF.Atan2(exploreDirection.Y, exploreDirection.X) + MathF.PI;
-                    newOrientation = invertedAngle;
-                    velocity = new Vector2(MathF.Cos(invertedAngle), MathF.Sin(invertedAngle)) * traits.Speed;
+                    newOrientation = SmoothOrientation(ant.Orientation, invertedAngle);
+                    velocity = new Vector2(MathF.Cos(newOrientation), MathF.Sin(newOrientation)) * traits.Speed;
                 }
                 // Si nada: usa FASE 3 (movimiento serpenteante)
             }
@@ -218,36 +223,65 @@ public class WorkerRole : IRoleStrategy
         };
     }
 
-    private Vector2 FindMaxPheromone(Vector2 position, PheromoneGrid pheromones, int colonyId, PheromoneType type, GridSystem grid)
+    /// <summary>
+    /// Detecta la dirección del rastro usando gradiente (derivadas parciales).
+    /// Más preciso que buscar máximos locales, especialmente en rastros con ruido.
+    /// </summary>
+    private Vector2 FindPheromoneDirectionByGradient(Vector2 position, PheromoneGrid pheromones, int colonyId, PheromoneType type, GridSystem grid)
     {
-        Vector2 pheromoneDirection = Vector2.Zero;
-        float maxPheromone = 0f;
+        float gradX = 0f, gradY = 0f;
+        const int searchRadius = 3;
 
-        for (int dx = -3; dx <= 3; dx++)
+        // Calcula derivadas usando diferencias centrales en 7x7
+        for (int x = 1; x < 2 * searchRadius; x++)
         {
-            for (int dy = -3; dy <= 3; dy++)
+            for (int y = 1; y < 2 * searchRadius; y++)
             {
-                int nx = (int)position.X + dx;
-                int ny = (int)position.Y + dy;
+                int gx = (int)position.X + x - searchRadius;
+                int gy = (int)position.Y + y - searchRadius;
 
-                if (nx < 0 || nx >= grid.Width || ny < 0 || ny >= grid.Height)
+                if (gx < 0 || gx >= grid.Width || gy < 0 || gy >= grid.Height)
                     continue;
 
-                float pheromone = pheromones.GetPheromone(nx, ny, colonyId, type);
+                // ∂f/∂x ≈ (f(x+1) - f(x-1)) / 2
+                float fRight = pheromones.GetPheromone(Math.Min(gx + 1, grid.Width - 1), gy, colonyId, type);
+                float fLeft = pheromones.GetPheromone(Math.Max(gx - 1, 0), gy, colonyId, type);
+                gradX += (fRight - fLeft);
 
-                if (pheromone > maxPheromone)
-                {
-                    maxPheromone = pheromone;
-                    Vector2 dir = new Vector2(nx - position.X, ny - position.Y);
-                    if (dir.LengthSquared() > 0.1f)
-                    {
-                        pheromoneDirection = Vector2.Normalize(dir);
-                    }
-                }
+                // ∂f/∂y ≈ (f(y+1) - f(y-1)) / 2
+                float fDown = pheromones.GetPheromone(gx, Math.Min(gy + 1, grid.Height - 1), colonyId, type);
+                float fUp = pheromones.GetPheromone(gx, Math.Max(gy - 1, 0), colonyId, type);
+                gradY += (fDown - fUp);
             }
         }
 
-        return pheromoneDirection;
+        Vector2 gradient = new Vector2(gradX, gradY);
+        if (gradient.LengthSquared() > 0.1f)
+            return Vector2.Normalize(gradient);
+
+        return Vector2.Zero;
+    }
+
+    /// <summary>
+    /// Interpola (suaviza) la orientación actual hacia una orientación objetivo.
+    /// Evita giros bruscos, creando una transición natural.
+    /// </summary>
+    private float SmoothOrientation(float currentOrientation, float targetOrientation, float smoothingFactor = 0.15f)
+    {
+        // Normalizar ángulos a [0, 2π)
+        currentOrientation = currentOrientation % (2 * MathF.PI);
+        if (currentOrientation < 0) currentOrientation += 2 * MathF.PI;
+
+        targetOrientation = targetOrientation % (2 * MathF.PI);
+        if (targetOrientation < 0) targetOrientation += 2 * MathF.PI;
+
+        // Calcular diferencia angular (siempre tomar el camino más corto)
+        float diff = targetOrientation - currentOrientation;
+        if (diff > MathF.PI) diff -= 2 * MathF.PI;
+        if (diff < -MathF.PI) diff += 2 * MathF.PI;
+
+        // Interpolar
+        return currentOrientation + diff * smoothingFactor;
     }
 
     private bool CheckPheromoneThreshold(Vector2 position, PheromoneGrid pheromones, int colonyId, PheromoneType type, GridSystem grid, float threshold)
