@@ -32,7 +32,8 @@ public class PheromoneLayer
         if (!_coloniesData.ContainsKey(colonyId))
             _coloniesData[colonyId] = new float[_width, _height];
 
-        _coloniesData[colonyId][x, y] = Math.Min(1f, _coloniesData[colonyId][x, y] + amount);
+        // Sin límite: acumula según deposite la hormiga
+        _coloniesData[colonyId][x, y] += amount;
     }
 
     public void Update(float deltaTime)
@@ -49,11 +50,11 @@ public class PheromoneLayer
             {
                 for (int y = 0; y < _height; y++)
                 {
-                    float diffused = layer[x, y] * (1 - Constants.PHEROMONE_DIFFUSION_RATE);
+                    // Decay lineal por difusión: resta fija (no multiplicación)
+                    float diffused = Math.Max(0f, layer[x, y] - Constants.PHEROMONE_DIFFUSION_RATE);
 
-                    // Orthogonal neighbors (up/down/left/right): 70% of diffusion rate / 4
+                    // Dispersión a vecinos (muy pequeña con decay lineal)
                     float orthogonalShare = Constants.PHEROMONE_DIFFUSION_RATE * Constants.PHEROMONE_DIFFUSION_ORTHOGONAL_WEIGHT / 4f;
-                    // Diagonal neighbors: 30% of diffusion rate / 4
                     float diagonalShare = Constants.PHEROMONE_DIFFUSION_RATE * Constants.PHEROMONE_DIFFUSION_DIAGONAL_WEIGHT / 4f;
 
                     // Orthogonal: (0,1), (0,-1), (1,0), (-1,0)
@@ -86,13 +87,12 @@ public class PheromoneLayer
                 }
             }
 
-            // Evaporation: hybrid model (percentage + fixed amount)
+            // Evaporation: decay lineal (resta fija, como evaporación real del agua)
             for (int x = 0; x < _width; x++)
             {
                 for (int y = 0; y < _height; y++)
                 {
-                    float percentageEvaporation = temp[x, y] * Constants.PHEROMONE_EVAPORATION_PERCENTAGE;
-                    temp[x, y] = Math.Max(0f, temp[x, y] - percentageEvaporation - Constants.PHEROMONE_EVAPORATION_FIXED);
+                    temp[x, y] = Math.Max(0f, temp[x, y] - Constants.PHEROMONE_EVAPORATION_FIXED);
                 }
             }
 

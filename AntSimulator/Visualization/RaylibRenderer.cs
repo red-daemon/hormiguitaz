@@ -75,6 +75,9 @@ public class RaylibRenderer : IRenderer
 
     private void DrawPheromones()
     {
+        // Calcular factor de normalización de color basado en # de hormigas
+        float maxColorFactor = _world.Ants.EntityCount <= 10 ? 10f : _world.Ants.EntityCount;
+
         for (int x = 0; x < _gridWidth; x++)
         {
             for (int y = 0; y < _gridHeight; y++)
@@ -86,7 +89,8 @@ public class RaylibRenderer : IRenderer
                 float explorePheromone = _world.Pheromones.GetPheromone(x, y, 1, PheromoneType.Explore);
                 if (explorePheromone > 0f)
                 {
-                    int intensity = (int)(Math.Clamp(explorePheromone, 0f, 1f) * 255);
+                    float normalizedValue = explorePheromone / maxColorFactor;
+                    int intensity = (int)(Math.Clamp(normalizedValue, 0f, 1f) * 255);
                     Raylib.DrawRectangle(px, py, _cellPixelSize, _cellPixelSize, new Color(255, 165, 0, intensity));
                 }
 
@@ -94,7 +98,8 @@ public class RaylibRenderer : IRenderer
                 float returnPheromone = _world.Pheromones.GetPheromone(x, y, 1, PheromoneType.Return);
                 if (returnPheromone > 0f)
                 {
-                    int intensity = (int)(Math.Clamp(returnPheromone, 0f, 1f) * 255);
+                    float normalizedValue = returnPheromone / maxColorFactor;
+                    int intensity = (int)(Math.Clamp(normalizedValue, 0f, 1f) * 255);
                     Raylib.DrawRectangle(px, py, _cellPixelSize, _cellPixelSize, new Color(100, 255, 100, intensity));
                 }
 
@@ -102,7 +107,8 @@ public class RaylibRenderer : IRenderer
                 float alertPheromone = _world.Pheromones.GetPheromone(x, y, 1, PheromoneType.Alert);
                 if (alertPheromone > 0f)
                 {
-                    int intensity = (int)(Math.Clamp(alertPheromone, 0f, 1f) * 255);
+                    float normalizedValue = alertPheromone / maxColorFactor;
+                    int intensity = (int)(Math.Clamp(normalizedValue, 0f, 1f) * 255);
                     Raylib.DrawRectangle(px, py, _cellPixelSize, _cellPixelSize, new Color(255, 0, 0, intensity));
                 }
             }

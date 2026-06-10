@@ -1,5 +1,6 @@
 using System.Numerics;
 using AntSimulator.Colonies;
+using AntSimulator.Core;
 using AntSimulator.ECS.Components;
 using AntSimulator.Environment;
 using AntSimulator.Pheromones;
@@ -79,7 +80,7 @@ public class WorkerRole : IRoleStrategy
             ) * traits.Speed;
 
             float deltaRotation = (float)((Random.Shared.NextDouble() - 0.5) * 2 * Math.PI / 180);
-            newOrientation += deltaRotation;
+            newOrientation = MathUtils.NormalizeAngle(newOrientation + deltaRotation);
         }
 
         // === ESTADO: EXPLORING ===
@@ -91,7 +92,8 @@ public class WorkerRole : IRoleStrategy
                 newState = AntState.Returning;
                 newHasFood = true;
                 // Cambio brusco de 180° cuando encuentra comida
-                newOrientation = ant.Orientation + MathF.PI;
+                newOrientation = MathUtils.NormalizeAngle(ant.Orientation + MathF.PI);
+                velocity = Vector2.Zero;
             }
             // Busca rastro RETURN con prioridad absoluta
             else if (Constants.PHEROMONES_ENABLED)
@@ -188,7 +190,7 @@ public class WorkerRole : IRoleStrategy
             if (exploreDirection.LengthSquared() > 0.1f)
             {
                 // Invierte dirección (+180°) con suavizado
-                float invertedAngle = MathF.Atan2(exploreDirection.Y, exploreDirection.X) + MathF.PI;
+                float invertedAngle = MathF.Atan2(exploreDirection.Y, exploreDirection.X);
                 newOrientation = SmoothOrientation(ant.Orientation, invertedAngle);
                 velocity = new Vector2(MathF.Cos(newOrientation), MathF.Sin(newOrientation)) * traits.Speed;
             }
@@ -231,16 +233,22 @@ public class WorkerRole : IRoleStrategy
     {
         float gradX = 0f, gradY = 0f;
         const int searchRadius = 3;
+        const float pheroThreshold = 0.00001f;
 
-        // Calcula derivadas usando diferencias centrales en 7x7
-        for (int x = 1; x < 2 * searchRadius; x++)
+        // Calcula derivadas usando diferencias centrales en 7x7, ignorando casillas sin feromona
+        for (int x = -searchRadius; x <= searchRadius; x++)
         {
-            for (int y = 1; y < 2 * searchRadius; y++)
+            for (int y = -searchRadius; y <= searchRadius; y++)
             {
-                int gx = (int)position.X + x - searchRadius;
-                int gy = (int)position.Y + y - searchRadius;
+                int gx = (int)position.X + x;
+                int gy = (int)position.Y + y;
 
                 if (gx < 0 || gx >= grid.Width || gy < 0 || gy >= grid.Height)
+                    continue;
+
+                // Solo calcular gradiente si hay feromona significativa
+                float centerValue = pheromones.GetPheromone(gx, gy, colonyId, type);
+                if (centerValue < pheroThreshold)
                     continue;
 
                 // ∂f/∂x ≈ (f(x+1) - f(x-1)) / 2
@@ -269,11 +277,8 @@ public class WorkerRole : IRoleStrategy
     private float SmoothOrientation(float currentOrientation, float targetOrientation, float smoothingFactor = 0.15f)
     {
         // Normalizar ángulos a [0, 2π)
-        currentOrientation = currentOrientation % (2 * MathF.PI);
-        if (currentOrientation < 0) currentOrientation += 2 * MathF.PI;
-
-        targetOrientation = targetOrientation % (2 * MathF.PI);
-        if (targetOrientation < 0) targetOrientation += 2 * MathF.PI;
+        currentOrientation = MathUtils.NormalizeAngle(currentOrientation);
+        targetOrientation = MathUtils.NormalizeAngle(targetOrientation);
 
         // Calcular diferencia angular (siempre tomar el camino más corto)
         float diff = targetOrientation - currentOrientation;
@@ -281,7 +286,7 @@ public class WorkerRole : IRoleStrategy
         if (diff < -MathF.PI) diff += 2 * MathF.PI;
 
         // Interpolar
-        return currentOrientation + diff * smoothingFactor;
+        return MathUtils.NormalizeAngle(currentOrientation + diff * smoothingFactor);
     }
 
     private bool CheckPheromoneThreshold(Vector2 position, PheromoneGrid pheromones, int colonyId, PheromoneType type, GridSystem grid, float threshold)
