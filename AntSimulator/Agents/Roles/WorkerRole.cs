@@ -226,16 +226,16 @@ public class WorkerRole : IRoleStrategy
     }
 
     /// <summary>
-    /// Detecta la dirección del rastro usando gradiente (derivadas parciales).
-    /// Más preciso que buscar máximos locales, especialmente en rastros con ruido.
+    /// Detecta la dirección del rastro usando ajuste de línea por mínimos cuadrados ponderados (PCA).
+    /// Más robusto que derivadas para rastros con ruido y cambios de dirección.
     /// </summary>
     private Vector2 FindPheromoneDirectionByGradient(Vector2 position, PheromoneGrid pheromones, int colonyId, PheromoneType type, GridSystem grid)
     {
-        float gradX = 0f, gradY = 0f;
+        var points = new List<(float x, float y, float intensity)>();
         const int searchRadius = 3;
-        const float pheroThreshold = 0.00001f;
+        const float threshold = 0.001f;
 
-        // Calcula derivadas usando diferencias centrales en 7x7, ignorando casillas sin feromona
+        // Recolectar puntos con feromonas significativas
         for (int x = -searchRadius; x <= searchRadius; x++)
         {
             for (int y = -searchRadius; y <= searchRadius; y++)
@@ -246,28 +246,79 @@ public class WorkerRole : IRoleStrategy
                 if (gx < 0 || gx >= grid.Width || gy < 0 || gy >= grid.Height)
                     continue;
 
-                // Solo calcular gradiente si hay feromona significativa
-                float centerValue = pheromones.GetPheromone(gx, gy, colonyId, type);
-                if (centerValue < pheroThreshold)
-                    continue;
-
-                // ∂f/∂x ≈ (f(x+1) - f(x-1)) / 2
-                float fRight = pheromones.GetPheromone(Math.Min(gx + 1, grid.Width - 1), gy, colonyId, type);
-                float fLeft = pheromones.GetPheromone(Math.Max(gx - 1, 0), gy, colonyId, type);
-                gradX += (fRight - fLeft);
-
-                // ∂f/∂y ≈ (f(y+1) - f(y-1)) / 2
-                float fDown = pheromones.GetPheromone(gx, Math.Min(gy + 1, grid.Height - 1), colonyId, type);
-                float fUp = pheromones.GetPheromone(gx, Math.Max(gy - 1, 0), colonyId, type);
-                gradY += (fDown - fUp);
+                float intensity = pheromones.GetPheromone(gx, gy, colonyId, type);
+                if (intensity > threshold)
+                    points.Add((gx, gy, intensity));
             }
         }
 
-        Vector2 gradient = new Vector2(gradX, gradY);
-        if (gradient.LengthSquared() > 0.1f)
-            return Vector2.Normalize(gradient);
+        if (points.Count < 2)
+            return Vector2.Zero;
 
-        return Vector2.Zero;
+        // Ajuste de línea por mínimos cuadrados ponderados
+        // Minimiza error perpendicular a la línea (PCA)
+        float sumW = 0, sumX = 0, sumY = 0, sumXX = 0, sumXY = 0, sumYY = 0;
+
+        foreach (var (x, y, intensity) in points)
+        {
+            sumW += intensity;
+            sumX += x * intensity;
+            sumY += y * intensity;
+            sumXX += x * x * intensity;
+            sumXY += x * y * intensity;
+            sumYY += y * y * intensity;
+        }
+
+        float meanX = sumX / sumW;
+        float meanY = sumY / sumW;
+
+        // Matriz de covarianza
+        float cov_xx = (sumXX / sumW) - (meanX * meanX);
+        float cov_xy = (sumXY / sumW) - (meanX * meanY);
+        float cov_yy = (sumYY / sumW) - (meanY * meanY);
+
+        // Diagonalizar usando eigenvalues (similar a PCA)
+        float trace = cov_xx + cov_yy;
+        float det = cov_xx * cov_yy - cov_xy * cov_xy;
+        float discriminant = trace * trace - 4 * det;
+
+        if (discriminant < 0)
+            return Vector2.Zero;
+
+        float lambda1 = (trace + MathF.Sqrt(discriminant)) / 2;
+        float eigX = cov_xy;
+        float eigY = lambda1 - cov_xx;
+
+        if (MathF.Abs(eigX) < 0.0001f && MathF.Abs(eigY) < 0.0001f)
+            return Vector2.Zero;
+
+        Vector2 direction = Vector2.Normalize(new Vector2(eigX, eigY));
+
+        // Orientar basándose en los extremos: encontrar puntos más alejados en cada dirección
+        float maxDist_forward = 0, maxDist_backward = 0;
+        float maxIntensity_forward = 0, maxIntensity_backward = 0;
+
+        foreach (var (x, y, intensity) in points)
+        {
+            float dist = (x - meanX) * direction.X + (y - meanY) * direction.Y;
+
+            if (dist > maxDist_forward)
+            {
+                maxDist_forward = dist;
+                maxIntensity_forward = intensity;
+            }
+            if (dist < maxDist_backward)
+            {
+                maxDist_backward = dist;
+                maxIntensity_backward = intensity;
+            }
+        }
+
+        // Orientar hacia el extremo con mayor intensidad
+        if (maxIntensity_backward > maxIntensity_forward)
+            direction = -direction;
+
+        return direction;
     }
 
     /// <summary>
