@@ -1,4 +1,7 @@
+using System;
+using System.Collections.Generic;
 using System.Numerics;
+using System.IO;
 using AntSimulator.Colonies;
 using AntSimulator.Core;
 using AntSimulator.ECS.Components;
@@ -61,6 +64,14 @@ public class WorkerRole : IRoleStrategy
 
             if (destPos != nestPosition)
             {
+                // return new RoleDecision
+                // {
+                //     Action = new AntAction { Velocity = Vector2.Zero },
+                //     NewOrientation = (float)5.4977871438,
+                //     NewPosition = new Vector2(53, 47),
+                //     NewState = AntState.Exploring
+                // };
+                // Para pruebas. Descomentar cuando este listo.
                 return new RoleDecision
                 {
                     Action = new AntAction { Velocity = Vector2.Zero },
@@ -98,7 +109,7 @@ public class WorkerRole : IRoleStrategy
             // Busca rastro RETURN con prioridad absoluta
             else if (Constants.PHEROMONES_ENABLED)
             {
-                Vector2 returnDirection = FindPheromoneDirectionByGradient(position, pheromones, ant.ColonyId, PheromoneType.Return, grid);
+                Vector2 returnDirection = FindPheromoneDirectionByGradient(position, pheromones, ant.ColonyId, PheromoneType.Return, grid, ant.Orientation);
                 if (returnDirection.LengthSquared() > 0.1f && CheckPheromoneThreshold(position, pheromones, ant.ColonyId, PheromoneType.Return, grid, 0.05f))
                 {
                     newState = AntState.Working;
@@ -114,7 +125,7 @@ public class WorkerRole : IRoleStrategy
         // === ESTADO: WORKING (sin comida) - siguiendo RETURN inverso hacia comida ===
         else if (ant.State == AntState.Working && !ant.HasFood && Constants.PHEROMONES_ENABLED)
         {
-            Vector2 returnDirection = FindPheromoneDirectionByGradient(position, pheromones, ant.ColonyId, PheromoneType.Return, grid);
+            Vector2 returnDirection = FindPheromoneDirectionByGradient(position, pheromones, ant.ColonyId, PheromoneType.Return, grid, ant.Orientation);
 
             if (returnDirection.LengthSquared() > 0.1f)
             {
@@ -154,7 +165,7 @@ public class WorkerRole : IRoleStrategy
                 };
             }
 
-            Vector2 returnDirection = FindPheromoneDirectionByGradient(position, pheromones, ant.ColonyId, PheromoneType.Return, grid);
+            Vector2 returnDirection = FindPheromoneDirectionByGradient(position, pheromones, ant.ColonyId, PheromoneType.Return, grid, ant.Orientation);
 
             if (returnDirection.LengthSquared() > 0.1f)
             {
@@ -185,12 +196,13 @@ public class WorkerRole : IRoleStrategy
             }
 
             // Busca rastro EXPLORE en dirección INVERSA +180° (porque EXPLORE va nido→comida)
-            Vector2 exploreDirection = FindPheromoneDirectionByGradient(position, pheromones, ant.ColonyId, PheromoneType.Explore, grid);
+            Vector2 exploreDirection = FindPheromoneDirectionByGradient(position, pheromones, ant.ColonyId, PheromoneType.Explore, grid, ant.Orientation);
 
             if (exploreDirection.LengthSquared() > 0.1f)
             {
                 // Invierte dirección (+180°) con suavizado
                 float invertedAngle = MathF.Atan2(exploreDirection.Y, exploreDirection.X);
+                invertedAngle = MathUtils.NormalizeAngle(invertedAngle);
                 newOrientation = SmoothOrientation(ant.Orientation, invertedAngle);
                 velocity = new Vector2(MathF.Cos(newOrientation), MathF.Sin(newOrientation)) * traits.Speed;
             }
@@ -198,7 +210,7 @@ public class WorkerRole : IRoleStrategy
             {
                 // Pierde rastro EXPLORE: usa FASE 3
                 // Si encuentra RETURN → sigue normal
-                Vector2 returnDirection = FindPheromoneDirectionByGradient(position, pheromones, ant.ColonyId, PheromoneType.Return, grid);
+                Vector2 returnDirection = FindPheromoneDirectionByGradient(position, pheromones, ant.ColonyId, PheromoneType.Return, grid, ant.Orientation);
                 if (returnDirection.LengthSquared() > 0.1f)
                 {
                     float targetAngle = MathF.Atan2(returnDirection.Y, returnDirection.X);
@@ -227,9 +239,9 @@ public class WorkerRole : IRoleStrategy
 
     /// <summary>
     /// Detecta la dirección del rastro usando ajuste de línea por mínimos cuadrados ponderados (PCA).
-    /// Más robusto que derivadas para rastros con ruido y cambios de dirección.
+    /// Valida contra la orientación actual para evitar cambios bruscos > 90°.
     /// </summary>
-    private Vector2 FindPheromoneDirectionByGradient(Vector2 position, PheromoneGrid pheromones, int colonyId, PheromoneType type, GridSystem grid)
+    private Vector2 FindPheromoneDirectionByGradient(Vector2 position, PheromoneGrid pheromones, int colonyId, PheromoneType type, GridSystem grid, float currentOrientation)
     {
         var points = new List<(float x, float y, float intensity)>();
         const int searchRadius = 3;
@@ -255,8 +267,7 @@ public class WorkerRole : IRoleStrategy
         if (points.Count < 2)
             return Vector2.Zero;
 
-        // Ajuste de línea por mínimos cuadrados ponderados
-        // Minimiza error perpendicular a la línea (PCA)
+        // Ajuste de línea por mínimos cuadrados ponderados (PCA)
         float sumW = 0, sumX = 0, sumY = 0, sumXX = 0, sumXY = 0, sumYY = 0;
 
         foreach (var (x, y, intensity) in points)
@@ -318,6 +329,16 @@ public class WorkerRole : IRoleStrategy
         if (maxIntensity_backward > maxIntensity_forward)
             direction = -direction;
 
+        // Validar contra orientación actual: si el cambio es > 90°, mantener orientación actual
+        if (direction.LengthSquared() > 0.01f)
+        {
+            float gradientAngle = MathF.Atan2(direction.Y, direction.X);
+            float angleDiff = MathF.Abs(MathUtils.NormalizeAngle(gradientAngle - currentOrientation));
+
+            if (angleDiff > MathF.PI / 2)
+                return new Vector2(MathF.Cos(currentOrientation), MathF.Sin(currentOrientation));
+        }
+
         return direction;
     }
 
@@ -328,8 +349,8 @@ public class WorkerRole : IRoleStrategy
     private float SmoothOrientation(float currentOrientation, float targetOrientation, float smoothingFactor = 0.15f)
     {
         // Normalizar ángulos a [0, 2π)
-        currentOrientation = MathUtils.NormalizeAngle(currentOrientation);
-        targetOrientation = MathUtils.NormalizeAngle(targetOrientation);
+        // currentOrientation = MathUtils.NormalizeAngle(currentOrientation);
+        // targetOrientation = MathUtils.NormalizeAngle(targetOrientation);
 
         // Calcular diferencia angular (siempre tomar el camino más corto)
         float diff = targetOrientation - currentOrientation;
@@ -358,5 +379,57 @@ public class WorkerRole : IRoleStrategy
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// [DEBUG ONLY] Guarda TODA la malla 7x7 de feromona a un archivo .txt para análisis.
+    /// Captura los 49 puntos sin filtrar por umbral.
+    /// Llamar manualmente desde el debugger cuando necesites capturar datos.
+    /// </summary>
+    private int DebugSaveMeshToFile(Vector2 position, PheromoneGrid pheromones, int colonyId, PheromoneType type, GridSystem grid)
+    {
+        System.Console.WriteLine($"Guardando malla");
+        try
+        {
+            string debugDir = @"C:\Users\bgaxiola\OneDrive - Capgemini\Projects\Ants\ant_simulator\AntSimulator.Tests\bin\Debug\net10.0\bin\Debug\visualizations";
+            Directory.CreateDirectory(debugDir);
+
+            string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss_fff");
+            string filename = Path.Combine(debugDir, $"mesh_{colonyId}_{type}_{timestamp}.txt");
+
+            var lines = new List<string>();
+            lines.Add($"# Centro: ({position.X:F1}, {position.Y:F1}) | Colonia: {colonyId} | Tipo: {type}");
+            lines.Add($"# Malla 7x7 completa (49 puntos)");
+            lines.Add("");
+
+            const int searchRadius = 3;
+            int pointCount = 0;
+
+            // Iterar todos los 49 puntos sin filtrar
+            for (int x = -searchRadius; x <= searchRadius; x++)
+            {
+                for (int y = -searchRadius; y <= searchRadius; y++)
+                {
+                    int gx = (int)position.X + x;
+                    int gy = (int)position.Y + y;
+
+                    if (gx >= 0 && gx < grid.Width && gy >= 0 && gy < grid.Height)
+                    {
+                        float intensity = pheromones.GetPheromone(gx, gy, colonyId, type);
+                        lines.Add($"({gx},{gy}) = {intensity:F6}");
+                        pointCount++;
+                    }
+                }
+            }
+
+            File.WriteAllLines(filename, lines);
+            System.Console.WriteLine($"✓ Malla guardada en: {filename}");
+            return 1;
+        }
+        catch (Exception ex)
+        {
+            System.Console.WriteLine($"✗ Error: {ex.GetType().Name} - {ex.Message}");
+            return 0;
+        }
     }
 }

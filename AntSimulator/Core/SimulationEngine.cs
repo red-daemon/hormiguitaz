@@ -73,22 +73,23 @@ public class SimulationEngine
 
             // Assign random wait time
             var ants = _world.Ants.GetAntsMutable();
-            ants[antId].WaitTicksRemaining = Random.Shared.Next(180, 601);
+            ants[antId].WaitTicksRemaining = Random.Shared.Next(0, 601);
             ants[antId].Orientation = -1;  // Not set until leaves nest
 
             colony.IncrementPopulation();
         }
 
-        // Add food patches in corners
-        int[] foodX = { 15, 85, 15, 85 };
-        int[] foodY = { 15, 15, 85, 85 };
+        // Add food patches closer to nest and larger
+        int[] foodX = { 15, 65, 35, 85 };
+        int[] foodY = { 35, 35, 65, 65 };
+        const int foodRadius = 3; // Más grande: 11x11 en lugar de 7x7
 
         for (int i = 0; i < 4; i++)
         {
             // Create food patches
-            for (int fx = foodX[i] - 3; fx <= foodX[i] + 3; fx++)
+            for (int fx = foodX[i] - foodRadius; fx <= foodX[i] + foodRadius; fx++)
             {
-                for (int fy = foodY[i] - 3; fy <= foodY[i] + 3; fy++)
+                for (int fy = foodY[i] - foodRadius; fy <= foodY[i] + foodRadius; fy++)
                 {
                     if (fx >= 0 && fx < gridWidth && fy >= 0 && fy < gridHeight)
                     {

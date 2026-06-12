@@ -33,9 +33,6 @@ public class BehaviorSystem : ISystem
             var colony = world.Colonies[ants[i].ColonyId];
             var role = _roles[ants[i].ColonyId];
 
-            // Check if this tick the ant is about to leave nest for first time
-            bool isLeavingNest = (ants[i].WaitTicksRemaining == 0 && ants[i].Orientation < 0);
-
             var decision = role.DecideAction(
                 i,
                 positions[i],

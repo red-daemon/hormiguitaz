@@ -1,4 +1,4 @@
-﻿using System.Numerics;
+using System.Numerics;
 using AntSimulator.Agents;
 using AntSimulator.Core;
 using AntSimulator.Lab;

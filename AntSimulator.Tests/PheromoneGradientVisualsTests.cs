@@ -67,7 +67,7 @@ public class PheromoneGradientVisualsTests
     public void VisualizeMeshDiagonalNESO()
     {
         var meshData = LoadMeshData("mesh_line_diagonal_neso");
-        VisualizeMeshFromData(meshData, "mesh_line_diagonal_neso", 135f);
+        VisualizeMeshFromData(meshData, "mesh_line_diagonal_neso", 315f);
     }
 
     [Fact]
@@ -204,7 +204,7 @@ public class PheromoneGradientVisualsTests
 
         Vector2 antPos = new Vector2(3, 3);
         var gradient = FindPheromoneDirectionByGradient(antPos, pheromones, grid);
-        Vector2 expectedDir = Vector2.Normalize(new Vector2(1, 1));
+        Vector2 expectedDir = Vector2.Normalize(new Vector2(1, -1));
         VisualizeGradientResultFromData(meshData, gradient, expectedDir, "gradient_line_diagonal_neso");
     }
 
@@ -218,7 +218,7 @@ public class PheromoneGradientVisualsTests
 
         Vector2 antPos = new Vector2(3, 3);
         var gradient = FindPheromoneDirectionByGradient(antPos, pheromones, grid);
-        Vector2 expectedDir = Vector2.Normalize(new Vector2(-1, 1));
+        Vector2 expectedDir = Vector2.Normalize(new Vector2(1, 1));
         VisualizeGradientResultFromData(meshData, gradient, expectedDir, "gradient_line_diagonal_nwse");
     }
 
@@ -310,6 +310,70 @@ public class PheromoneGradientVisualsTests
         float angle = 330f * MathF.PI / 180f;
         Vector2 expectedDir = new Vector2(MathF.Cos(angle), MathF.Sin(angle));
         VisualizeGradientResultFromData(meshData, gradient, expectedDir, "gradient_line_oblique_330");
+    }
+
+    /// <summary>
+    /// Visualiza cualquier malla debug capturada desde WorkerRole + calcula y dibuja el gradiente.
+    /// Parámetro: nombre del archivo .txt sin extensión (ej: "mesh_1_Explore_20260611_150106_376")
+    /// </summary>
+    [Theory]
+    [InlineData("mesh_1_Explore_20260612_115203_695")]
+    public void VisualizeDebugMeshWithGradient(string meshName)
+    {
+        // Lee el header para extraer el centro global
+        string filePath = Path.Combine("bin", "Debug", "visualizations", $"{meshName}.txt");
+        if (!File.Exists(filePath))
+        {
+            _output.WriteLine($"✗ Archivo no encontrado: {filePath}");
+            return;
+        }
+
+        var lines = File.ReadLines(filePath).ToList();
+
+        // Parse del header: # Centro: (56.2, 44.0) | Colonia: ...
+        var centerLine = lines[0]; // "# Centro: (56.2, 44.0) | ..."
+        var parts = centerLine.Split('(', ')');
+        var coords = parts[1].Split(',');
+
+        int centerX = (int)float.Parse(coords[0]);
+        int centerY = (int)float.Parse(coords[1]);
+
+        var globalData = LoadMeshData(meshName);
+        var localData = ConvertToLocalCoordinates(globalData, centerX, centerY);
+
+        // Crea grid y pheromones locales
+        var grid = new GridSystem(7, 7);
+        var pheromones = new PheromoneGrid(7, 7);
+        LoadPheromoneDataFromMesh(pheromones, localData);
+
+        // Calcula el gradiente desde el centro (3, 3)
+        Vector2 antPos = new Vector2(3, 3);
+        var gradient = FindPheromoneDirectionByGradient(antPos, pheromones, grid);
+
+        // Visualiza: malla + gradiente calculado (sin vector esperado)
+        var svg = GenerateSvgFromData(localData, gradient, Vector2.Zero, $"debug_mesh_{meshName}");
+        string filename = Path.Combine("bin", "Debug", "visualizations", $"debug_mesh_{meshName}.svg");
+        File.WriteAllText(filename, svg);
+
+        _output.WriteLine($"✓ Visualización con gradiente guardada: debug_mesh_{meshName}.svg");
+        _output.WriteLine($"  Gradiente calculado: {GetAngleDegrees(gradient):F1}°");
+    }
+
+    private Dictionary<(int x, int y), float> ConvertToLocalCoordinates(
+        Dictionary<(int x, int y), float> globalData, int centerX, int centerY)
+    {
+        var localData = new Dictionary<(int x, int y), float>();
+
+        foreach (var ((gx, gy), value) in globalData)
+        {
+            int lx = gx - centerX + 3;  // Convierte a rango [0, 6]
+            int ly = gy - centerY + 3;
+
+            if (lx >= 0 && lx < 7 && ly >= 0 && ly < 7)
+                localData[(lx, ly)] = value;
+        }
+
+        return localData;
     }
 
     private (GridSystem grid, PheromoneGrid pheromones, Vector2 antPos) SetupHorizontalTrail()
@@ -610,14 +674,40 @@ public class PheromoneGradientVisualsTests
         var grid = new GridSystem(7, 7);
         var pheromones = new PheromoneGrid(7, 7);
 
-        // Línea a 120°: diagonal hacia arriba-izquierda
-        float lastValue = 0.5f;
-        var points = new[] { (6, 0), (5, 1), (4, 2), (3, 2), (2, 3), (1, 4), (0, 5) };
+        // Línea a 120°: movimiento en X negativo, Y positivo (arriba-izquierda)
+        // Usar DDA para trazar línea correctamente
+        float angleRad = 120f * MathF.PI / 180f;
+        float dirX = MathF.Cos(angleRad);
+        float dirY = MathF.Sin(angleRad);
 
-        for (int idx = points.Length - 1; idx >= 0; idx--)
+        float lastValue = 0.5f;
+        var points = new List<(int x, int y)>();
+
+        // DDA: iterar por el eje con mayor cambio
+        float px = 6f, py = 0f;
+        int steps = 6;
+        float stepX = dirX;
+        float stepY = dirY;
+
+        for (int i = 0; i <= steps; i++)
+        {
+            int x = (int)Math.Floor(px + 0.5f);
+            int y = (int)Math.Floor(py + 0.5f);
+
+            if (x >= 0 && x < 7 && y >= 0 && y < 7)
+            {
+                if (points.Count == 0 || points[points.Count - 1] != (x, y))
+                    points.Add((x, y));
+            }
+
+            px += stepX;
+            py += stepY;
+        }
+
+        for (int idx = points.Count - 1; idx >= 0; idx--)
         {
             var (x, y) = points[idx];
-            float intensity = lastValue * (float)Math.Pow(0.98, points.Length - 1 - idx);
+            float intensity = lastValue * (float)Math.Pow(0.98, points.Count - 1 - idx);
             pheromones.Deposit(x, y, 1, PheromoneType.Return, intensity);
 
             for (int dx = -1; dx <= 1; dx++)
@@ -630,7 +720,7 @@ public class PheromoneGradientVisualsTests
                 }
         }
 
-        Vector2 antPos = new Vector2(4, 2);
+        Vector2 antPos = new Vector2(3, 3);
         return (grid, pheromones, antPos);
     }
 
@@ -639,14 +729,39 @@ public class PheromoneGradientVisualsTests
         var grid = new GridSystem(7, 7);
         var pheromones = new PheromoneGrid(7, 7);
 
-        // Línea a 15°: casi horizontal, levemente arriba
-        float lastValue = 0.5f;
-        var points = new[] { (0, 2), (1, 2), (2, 1), (3, 1), (4, 0), (5, 0), (6, 0) };
+        // Línea a 15°: movimiento principalmente en X, poco en Y positivo
+        float angleRad = 15f * MathF.PI / 180f;
+        float dirX = MathF.Cos(angleRad);
+        float dirY = MathF.Sin(angleRad);
 
-        for (int idx = points.Length - 1; idx >= 0; idx--)
+        float lastValue = 0.5f;
+        var points = new List<(int x, int y)>();
+
+        // DDA: iterar por el eje con mayor cambio
+        float px = 0f, py = 3f;
+        int steps = 6;
+        float stepX = dirX;
+        float stepY = dirY;
+
+        for (int i = 0; i <= steps; i++)
+        {
+            int x = (int)Math.Floor(px + 0.5f);
+            int y = (int)Math.Floor(py + 0.5f);
+
+            if (x >= 0 && x < 7 && y >= 0 && y < 7)
+            {
+                if (points.Count == 0 || points[points.Count - 1] != (x, y))
+                    points.Add((x, y));
+            }
+
+            px += stepX;
+            py += stepY;
+        }
+
+        for (int idx = points.Count - 1; idx >= 0; idx--)
         {
             var (x, y) = points[idx];
-            float intensity = lastValue * (float)Math.Pow(0.98, points.Length - 1 - idx);
+            float intensity = lastValue * (float)Math.Pow(0.98, points.Count - 1 - idx);
             pheromones.Deposit(x, y, 1, PheromoneType.Return, intensity);
 
             for (int dx = -1; dx <= 1; dx++)
@@ -659,7 +774,7 @@ public class PheromoneGradientVisualsTests
                 }
         }
 
-        Vector2 antPos = new Vector2(1, 3);
+        Vector2 antPos = new Vector2(3, 3);
         return (grid, pheromones, antPos);
     }
 
@@ -668,14 +783,39 @@ public class PheromoneGradientVisualsTests
         var grid = new GridSystem(7, 7);
         var pheromones = new PheromoneGrid(7, 7);
 
-        // Línea a 75°: casi vertical, levemente derecha
-        float lastValue = 0.5f;
-        var points = new[] { (4, 0), (5, 1), (5, 2), (6, 3), (6, 4), (6, 5), (6, 6) };
+        // Línea a 75°: movimiento principalmente en Y, poco en X positivo
+        float angleRad = 75f * MathF.PI / 180f;
+        float dirX = MathF.Cos(angleRad);
+        float dirY = MathF.Sin(angleRad);
 
-        for (int idx = points.Length - 1; idx >= 0; idx--)
+        float lastValue = 0.5f;
+        var points = new List<(int x, int y)>();
+
+        // DDA: iterar por el eje con mayor cambio
+        float px = 3f, py = 0f;
+        int steps = 6;
+        float stepX = dirX;
+        float stepY = dirY;
+
+        for (int i = 0; i <= steps; i++)
+        {
+            int x = (int)Math.Floor(px + 0.5f);
+            int y = (int)Math.Floor(py + 0.5f);
+
+            if (x >= 0 && x < 7 && y >= 0 && y < 7)
+            {
+                if (points.Count == 0 || points[points.Count - 1] != (x, y))
+                    points.Add((x, y));
+            }
+
+            px += stepX;
+            py += stepY;
+        }
+
+        for (int idx = points.Count - 1; idx >= 0; idx--)
         {
             var (x, y) = points[idx];
-            float intensity = lastValue * (float)Math.Pow(0.98, points.Length - 1 - idx);
+            float intensity = lastValue * (float)Math.Pow(0.98, points.Count - 1 - idx);
             pheromones.Deposit(x, y, 1, PheromoneType.Return, intensity);
 
             for (int dx = -1; dx <= 1; dx++)
@@ -688,7 +828,7 @@ public class PheromoneGradientVisualsTests
                 }
         }
 
-        Vector2 antPos = new Vector2(5, 2);
+        Vector2 antPos = new Vector2(3, 3);
         return (grid, pheromones, antPos);
     }
 
@@ -797,7 +937,7 @@ public class PheromoneGradientVisualsTests
                     svg.AppendLine($@"<rect x=""{pixelX}"" y=""{pixelY}"" width=""{CELL_PIXELS}"" height=""{CELL_PIXELS}"" fill=""{color}"" stroke=""#999"" stroke-width=""1""/>");
 
                     // Intensidad como texto
-                    svg.AppendLine($@"<text x=""{pixelX + CELL_PIXELS/2}"" y=""{pixelY + CELL_PIXELS/2 + 5}"" font-size=""10"" text-anchor=""middle"" fill=""#333"">{intensity:F3}</text>");
+                    svg.AppendLine($@"<text x=""{pixelX + CELL_PIXELS / 2}"" y=""{pixelY + CELL_PIXELS / 2 + 5}"" font-size=""10"" text-anchor=""middle"" fill=""#333"">{intensity:F3}</text>");
                 }
             }
         }
@@ -868,7 +1008,7 @@ public class PheromoneGradientVisualsTests
                     svg.AppendLine($@"<rect x=""{pixelX}"" y=""{pixelY}"" width=""{CELL_PIXELS}"" height=""{CELL_PIXELS}"" fill=""{color}"" stroke=""#999"" stroke-width=""1""/>");
 
                     // Intensidad como texto
-                    svg.AppendLine($@"<text x=""{pixelX + CELL_PIXELS/2}"" y=""{pixelY + CELL_PIXELS/2 + 5}"" font-size=""10"" text-anchor=""middle"" fill=""#333"">{normalized:F2}</text>");
+                    svg.AppendLine($@"<text x=""{pixelX + CELL_PIXELS / 2}"" y=""{pixelY + CELL_PIXELS / 2 + 5}"" font-size=""10"" text-anchor=""middle"" fill=""#333"">{normalized:F2}</text>");
                 }
             }
         }
@@ -921,7 +1061,11 @@ public class PheromoneGradientVisualsTests
 
     private float GetAngleDegrees(Vector2 vector)
     {
-        return MathF.Atan2(vector.Y, vector.X) * 180f / MathF.PI;
+        float angle = MathF.Atan2(vector.Y, vector.X) * 180f / MathF.PI;
+        // Normalizar a rango [0, 360)
+        if (angle < 0)
+            angle += 360f;
+        return angle;
     }
 
     private float GetAngleBetweenVectors(Vector2 v1, Vector2 v2)
@@ -939,7 +1083,7 @@ public class PheromoneGradientVisualsTests
 
     private Dictionary<(int x, int y), float> LoadMeshData(string meshName)
     {
-        string filename = $"bin/Debug/visualizations/{meshName}.txt";
+        string filename = Path.Combine("bin", "Debug", "visualizations", $"{meshName}.txt");
         var data = new Dictionary<(int, int), float>();
 
         if (!File.Exists(filename))
@@ -979,7 +1123,7 @@ public class PheromoneGradientVisualsTests
             }
         }
 
-        string filename = $"bin/Debug/visualizations/{meshName}.txt";
+        string filename = Path.Combine("bin", "Debug", "visualizations", $"{meshName}.txt");
         File.WriteAllLines(filename, lines);
         _output.WriteLine($"✓ Malla guardada: {meshName}.txt ({lines.Count} casillas)");
     }
@@ -987,7 +1131,7 @@ public class PheromoneGradientVisualsTests
     private void VisualizeMeshFromData(Dictionary<(int x, int y), float> meshData, string testName, float? expectedAngleDegrees = null)
     {
         var svg = GenerateMeshSvgFromData(meshData, testName, expectedAngleDegrees);
-        string filename = $"bin/Debug/visualizations/{testName}.svg";
+        string filename = Path.Combine("bin", "Debug", "visualizations", $"{testName}.svg");
         File.WriteAllText(filename, svg);
         _output.WriteLine($"✓ Visualización guardada: {testName}.svg");
     }
@@ -1003,7 +1147,7 @@ public class PheromoneGradientVisualsTests
     private void VisualizeGradientResultFromData(Dictionary<(int x, int y), float> meshData, Vector2 gradient, Vector2 expectedDir, string testName)
     {
         var svg = GenerateSvgFromData(meshData, gradient, expectedDir, testName);
-        string filename = $"bin/Debug/visualizations/{testName}.svg";
+        string filename = Path.Combine("bin", "Debug", "visualizations", $"{testName}.svg");
         File.WriteAllText(filename, svg);
 
         float errorAngle = GetAngleBetweenVectors(gradient, expectedDir) * 180f / MathF.PI;
@@ -1027,7 +1171,7 @@ public class PheromoneGradientVisualsTests
         int offsetX = 50;
         int offsetY = 60;
 
-        float maxIntensity = meshData.Values.Max();
+        float maxIntensity = meshData.Count > 0 ? meshData.Values.Max() : 1f;
 
         for (int x = minX; x <= maxX; x++)
         {
@@ -1041,7 +1185,7 @@ public class PheromoneGradientVisualsTests
                 int pixelY = offsetY + (y - minY) * CELL_PIXELS;
 
                 svg.AppendLine($@"<rect x=""{pixelX}"" y=""{pixelY}"" width=""{CELL_PIXELS}"" height=""{CELL_PIXELS}"" fill=""{color}"" stroke=""#999"" stroke-width=""1""/>");
-                svg.AppendLine($@"<text x=""{pixelX + CELL_PIXELS/2}"" y=""{pixelY + CELL_PIXELS/2 + 5}"" font-size=""9"" text-anchor=""middle"" fill=""#333"">{intensity:F3}</text>");
+                svg.AppendLine($@"<text x=""{pixelX + CELL_PIXELS / 2}"" y=""{pixelY + CELL_PIXELS / 2 + 5}"" font-size=""9"" text-anchor=""middle"" fill=""#333"">{intensity:F3}</text>");
             }
         }
 
@@ -1084,7 +1228,7 @@ public class PheromoneGradientVisualsTests
         int offsetX = 50;
         int offsetY = 60;
 
-        float maxIntensity = meshData.Values.Max();
+        float maxIntensity = meshData.Count > 0 ? meshData.Values.Max() : 1f;
 
         for (int x = minX; x <= maxX; x++)
         {
@@ -1098,7 +1242,7 @@ public class PheromoneGradientVisualsTests
                 int pixelY = offsetY + (y - minY) * CELL_PIXELS;
 
                 svg.AppendLine($@"<rect x=""{pixelX}"" y=""{pixelY}"" width=""{CELL_PIXELS}"" height=""{CELL_PIXELS}"" fill=""{color}"" stroke=""#999"" stroke-width=""1""/>");
-                svg.AppendLine($@"<text x=""{pixelX + CELL_PIXELS/2}"" y=""{pixelY + CELL_PIXELS/2 + 5}"" font-size=""9"" text-anchor=""middle"" fill=""#333"">{intensity:F3}</text>");
+                svg.AppendLine($@"<text x=""{pixelX + CELL_PIXELS / 2}"" y=""{pixelY + CELL_PIXELS / 2 + 5}"" font-size=""9"" text-anchor=""middle"" fill=""#333"">{intensity:F3}</text>");
             }
         }
 
@@ -1140,9 +1284,11 @@ public class PheromoneGradientVisualsTests
 
     private Vector2 FindPheromoneDirectionByGradient(Vector2 position, PheromoneGrid pheromones, GridSystem grid)
     {
-        float gradX = 0f, gradY = 0f;
+        var points = new List<(float x, float y, float intensity)>();
         const int searchRadius = SEARCH_RADIUS;
+        const float threshold = 0.001f;
 
+        // Recolectar puntos con feromonas significativas
         for (int x = -searchRadius; x <= searchRadius; x++)
         {
             for (int y = -searchRadius; y <= searchRadius; y++)
@@ -1153,20 +1299,78 @@ public class PheromoneGradientVisualsTests
                 if (gx < 0 || gx >= grid.Width || gy < 0 || gy >= grid.Height)
                     continue;
 
-                float fRight = pheromones.GetPheromone(Math.Min(gx + 1, grid.Width - 1), gy, 1, PheromoneType.Return);
-                float fLeft = pheromones.GetPheromone(Math.Max(gx - 1, 0), gy, 1, PheromoneType.Return);
-                gradX += (fRight - fLeft);
-
-                float fDown = pheromones.GetPheromone(gx, Math.Min(gy + 1, grid.Height - 1), 1, PheromoneType.Return);
-                float fUp = pheromones.GetPheromone(gx, Math.Max(gy - 1, 0), 1, PheromoneType.Return);
-                gradY += (fDown - fUp);
+                float intensity = pheromones.GetPheromone(gx, gy, 1, PheromoneType.Return);
+                if (intensity > threshold)
+                    points.Add((gx, gy, intensity));
             }
         }
 
-        Vector2 gradient = new Vector2(gradX, gradY);
-        if (gradient.LengthSquared() > 0.1f)
-            return Vector2.Normalize(gradient);
+        if (points.Count < 2)
+            return Vector2.Zero;
 
-        return Vector2.Zero;
+        // Ajuste de línea por mínimos cuadrados ponderados
+        // Minimiza error perpendicular a la línea
+        float sumW = 0, sumX = 0, sumY = 0, sumXX = 0, sumXY = 0, sumYY = 0;
+
+        foreach (var (x, y, intensity) in points)
+        {
+            sumW += intensity;
+            sumX += x * intensity;
+            sumY += y * intensity;
+            sumXX += x * x * intensity;
+            sumXY += x * y * intensity;
+            sumYY += y * y * intensity;
+        }
+
+        float meanX = sumX / sumW;
+        float meanY = sumY / sumW;
+
+        // Covarianza
+        float cov_xx = (sumXX / sumW) - (meanX * meanX);
+        float cov_xy = (sumXY / sumW) - (meanX * meanY);
+        float cov_yy = (sumYY / sumW) - (meanY * meanY);
+
+        // Dirección principal (similar a PCA pero ahora usaré extremos)
+        float trace = cov_xx + cov_yy;
+        float det = cov_xx * cov_yy - cov_xy * cov_xy;
+        float discriminant = trace * trace - 4 * det;
+
+        if (discriminant < 0)
+            return Vector2.Zero;
+
+        float lambda1 = (trace + MathF.Sqrt(discriminant)) / 2;
+        float eigX = cov_xy;
+        float eigY = lambda1 - cov_xx;
+
+        if (MathF.Abs(eigX) < 0.0001f && MathF.Abs(eigY) < 0.0001f)
+            return Vector2.Zero;
+
+        Vector2 direction = Vector2.Normalize(new Vector2(eigX, eigY));
+
+        // Orientar basándose en los extremos: encontrar puntos más alejados en cada dirección
+        float maxDist_forward = 0, maxDist_backward = 0;
+        float maxIntensity_forward = 0, maxIntensity_backward = 0;
+
+        foreach (var (x, y, intensity) in points)
+        {
+            float dist = (x - meanX) * direction.X + (y - meanY) * direction.Y;
+
+            if (dist > maxDist_forward)
+            {
+                maxDist_forward = dist;
+                maxIntensity_forward = intensity;
+            }
+            if (dist < maxDist_backward)
+            {
+                maxDist_backward = dist;
+                maxIntensity_backward = intensity;
+            }
+        }
+
+        // Orientar hacia el extremo con mayor intensidad
+        if (maxIntensity_backward > maxIntensity_forward)
+            direction = -direction;
+
+        return direction;
     }
 }

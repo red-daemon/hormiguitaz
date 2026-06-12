@@ -1,10 +1,15 @@
 # 🔧 Technical Design Document - Ant Simulator
 
 **Status:** Draft  
-**Version:** 1.1  
-**Last Updated:** 2026-06-04
+**Version:** 1.2  
+**Last Updated:** 2026-06-12
 
-### Cambios Recientes (v1.1)
+### Cambios Recientes (v1.2)
+
+- ✅ **Validación Angular en Gradiente**: `FindPheromoneDirectionByGradient` ahora valida que el cambio de orientación detectado no supere 90° respecto a la orientación actual. Si el cambio es brusco (> 90°), mantiene la orientación actual en lugar de rechazar el gradiente. Evita saltos ilógicos de dirección y mejora la suavidad del movimiento.
+- ✅ **Refactor de Métodos**: Se unificó `FindPheromoneDirectionByGradient` eliminando versión duplicada sin validación. Todos los call sites ahora pasan `currentOrientation` para una detección consistente.
+
+### Cambios Previos (v1.1)
 
 - ✅ **Difusión Anisotrópica**: Pheromones ahora difunden con mayor intensidad en direcciones ortogonales (70%) vs. diagonales (30%), creando senderos más rectos y realistas
 - ✅ **Evaporación Híbrida**: Modelo de evaporación mejorado que combina porcentaje + cantidad fija para evitar persistencia indefinida de feromonas viejas
