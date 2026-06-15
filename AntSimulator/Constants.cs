@@ -22,4 +22,11 @@ public static class Constants
     public const float PHEROMONE_EVAPORATION_PERCENTAGE = 0f;          // Desuso
     public const float PHEROMONE_EVAPORATION_FIXED = 0.00004f;         // Decay lineal: 0.00004 por tick
                                                                        // Total: 0.00001 + 0.00004 = 0.00005 (llega a 0 en 20k ticks)
+
+    // Colorización de feromonas: saturación de color para el renderer
+    // Determinado empíricamente con PheromoneDepositAnalysisTests:
+    // - Hormiga deposita ~18.79 unidades promedio al cruzar una casilla
+    // - 10 hormigas × 18.79 = ~188 unidades para saturar el color
+    // - El color visual no se vuelve más intenso aunque la feromona acumule más
+    public const float PHEROMONE_COLOR_SATURATION = 188f;
 }
